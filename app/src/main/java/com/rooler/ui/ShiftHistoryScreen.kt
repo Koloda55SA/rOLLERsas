@@ -1,8 +1,10 @@
 package com.rooler.ui
 
+import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
+import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.ArrowBack
 import androidx.compose.material3.*
@@ -51,12 +53,13 @@ fun ShiftHistoryScreen(onBack: () -> Unit) {
             navigationIcon = { IconButton(onClick = onBack) { Icon(Icons.Default.ArrowBack, "Назад") } }
         )
     }) { pad ->
+        Column(Modifier.padding(pad).fillMaxSize()) {
         if (loading) {
-            Box(Modifier.fillMaxSize().padding(pad), contentAlignment = Alignment.Center) {
+            Box(Modifier.weight(1f).fillMaxWidth(), contentAlignment = Alignment.Center) {
                 CircularProgressIndicator()
             }
         } else {
-            Column(Modifier.padding(pad).padding(16.dp)) {
+            Column(Modifier.weight(1f).padding(16.dp)) {
                 Row(Modifier.fillMaxWidth(), verticalAlignment = Alignment.CenterVertically) {
                     Text("Всего смен: ${shifts.size}", fontWeight = FontWeight.Bold, fontSize = 16.sp,
                         modifier = Modifier.weight(1f))
@@ -68,7 +71,7 @@ fun ShiftHistoryScreen(onBack: () -> Unit) {
                 }
                 Spacer(Modifier.height(8.dp))
 
-                LazyColumn {
+                LazyColumn(Modifier.weight(1f)) {
                     items(shifts) { (dateKey, shift) ->
                         Card(Modifier.fillMaxWidth().padding(vertical = 4.dp)) {
                             Row(Modifier.padding(12.dp), verticalAlignment = Alignment.CenterVertically) {
@@ -84,12 +87,12 @@ fun ShiftHistoryScreen(onBack: () -> Unit) {
                                     }
                                 }
                                 if (shift.closeTime > 0) {
-                                    Surface(color = Color(0xFFE8F5E9), shape = androidx.compose.foundation.shape.RoundedCornerShape(4.dp)) {
+                                    Surface(color = Color(0xFFE8F5E9), shape = RoundedCornerShape(4.dp)) {
                                         Text("Закрыта", fontSize = 12.sp, color = Color(0xFF2E7D32),
                                             modifier = Modifier.padding(horizontal = 8.dp, vertical = 4.dp), fontWeight = FontWeight.Medium)
                                     }
                                 } else if (shift.openTime > 0) {
-                                    Surface(color = Color(0xFFFFF3E0), shape = androidx.compose.foundation.shape.RoundedCornerShape(4.dp)) {
+                                    Surface(color = Color(0xFFFFF3E0), shape = RoundedCornerShape(4.dp)) {
                                         Text("Открыта", fontSize = 12.sp, color = Color(0xFFF57F17),
                                             modifier = Modifier.padding(horizontal = 8.dp, vertical = 4.dp), fontWeight = FontWeight.Medium)
                                     }
@@ -101,13 +104,7 @@ fun ShiftHistoryScreen(onBack: () -> Unit) {
             }
         }
 
-        Row(
-            Modifier.fillMaxWidth().background(Color(0xFF263238)).padding(horizontal = 8.dp, vertical = 2.dp),
-            verticalAlignment = Alignment.CenterVertically
-        ) {
-            Text("Разраб: Рахманов Сыймыкбек", color = Color(0xFF90A4AE), fontSize = 10.sp)
-            Spacer(Modifier.width(6.dp))
-            Text("\uD83D\uDCF8 __rahmanov___", color = Color(0xFFE91E63), fontSize = 10.sp, fontWeight = FontWeight.Bold)
+        WatermarkBar()
         }
     }
 

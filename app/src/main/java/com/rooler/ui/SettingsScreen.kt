@@ -94,7 +94,8 @@ fun SettingsScreen(
             }
         )
     }) { pad ->
-        LazyColumn(Modifier.padding(pad).padding(16.dp)) {
+        Column(Modifier.padding(pad).fillMaxSize()) {
+        LazyColumn(Modifier.weight(1f).padding(16.dp)) {
             item {
                 OutlinedButton(onClick = { showDatePicker = true }, modifier = Modifier.fillMaxWidth()) {
                     Text("\uD83D\uDCC5 Дата: $dateKey")
@@ -196,6 +197,7 @@ fun SettingsScreen(
         }
 
         WatermarkBar()
+        }
     }
 
     if (showDatePicker) {

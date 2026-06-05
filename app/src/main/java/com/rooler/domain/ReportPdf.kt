@@ -6,6 +6,7 @@ import android.graphics.Paint
 import android.graphics.pdf.PdfDocument
 import androidx.core.content.FileProvider
 import com.rooler.data.models.Shift
+import com.rooler.domain.DayAnalytics
 import java.io.File
 import java.text.SimpleDateFormat
 import java.util.Date
