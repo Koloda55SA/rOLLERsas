@@ -34,6 +34,8 @@ class MainActivity : ComponentActivity() {
                 var screen by remember { mutableStateOf(Screen.KANBAN) }
                 var showPin by remember { mutableStateOf(false) }
 
+                LaunchedEffect(Unit) { vm.setTotalRollers(admin.totalRollers) }
+
                 when (screen) {
                     Screen.KANBAN -> KanbanScreen(
                         vm = vm,
