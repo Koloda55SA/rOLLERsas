@@ -14,6 +14,7 @@ import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
@@ -40,13 +41,19 @@ fun VoiceSetupScreen(totalBadges: Int, onBack: () -> Unit) {
         for (i in 1..totalBadges) add(VI("num_$i", "Бейдж $i"))
     }}
 
+    var toast by remember { mutableStateOf<String?>(null) }
+
     Scaffold(containerColor = R.BG, topBar = { TopAppBar(title = { Text("Озвучка", color = R.T1) }, navigationIcon = { IconButton(onClick = onBack) { Icon(Icons.Default.ArrowBack, null, tint = R.T2) } }, colors = TopAppBarDefaults.topAppBarColors(containerColor = R.S1)) }) { pad ->
         LazyColumn(Modifier.padding(pad).padding(horizontal = 10.dp)) {
             items(items, key = { it.key }) { item ->
-                key(ver) { VRow(item.title, rec.exists(item.key), recKey == item.key, { if (recKey == item.key) { rec.stop(); recKey = null; ver++ } else { rec.start(item.key); recKey = item.key } }, { rec.playback(item.key) }) }
+                key(ver) { VRow(item.title, rec.exists(item.key), recKey == item.key,
+                    { if (recKey == item.key) { rec.stop(); recKey = null; ver++ }
+                      else { try { rec.start(item.key); recKey = item.key } catch (_: Exception) { toast = "Нет доступа к микрофону" } } },
+                    { rec.playback(item.key) }) }
             }
         }
     }
+    toast?.let { t -> Snackbar(Modifier.padding(10.dp), containerColor = R.RD.copy(alpha = 0.9f), contentColor = Color.White) { Text(t, fontWeight = FontWeight.Medium) }; LaunchedEffect(t) { kotlinx.coroutines.delay(2500); toast = null } }
 }
 
 @Composable private fun VRow(title: String, done: Boolean, rec: Boolean, onRec: () -> Unit, onPlay: () -> Unit) {

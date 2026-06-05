@@ -6,54 +6,57 @@ import android.media.MediaRecorder
 import android.os.Build
 import java.io.File
 
-/**
- * Запись голоса с микрофона в filesDir/voices/<name>.m4a (AAC/MPEG4).
- * Используется для записи озвучки бейджей и общей фразы.
- */
 class VoiceRecorder(private val context: Context) {
     private var recorder: MediaRecorder? = null
     private var player: MediaPlayer? = null
     private var currentTarget: File? = null
 
-    /** Начать запись во временный файл. */
     fun start(name: String) {
         stopPlayback()
+        stop()
         val target = VoicePlayer.voiceFile(context, name)
+        target.parentFile?.mkdirs()
         currentTarget = target
         val tmp = File(target.parentFile, "$name.tmp")
+        if (tmp.exists()) tmp.delete()
         val rec = if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.S)
             MediaRecorder(context) else @Suppress("DEPRECATION") MediaRecorder()
-        rec.apply {
-            setAudioSource(MediaRecorder.AudioSource.MIC)
-            setOutputFormat(MediaRecorder.OutputFormat.MPEG_4)
-            setAudioEncoder(MediaRecorder.AudioEncoder.AAC)
-            setOutputFile(tmp.absolutePath)
-            prepare()
-            start()
+        try {
+            rec.setAudioSource(MediaRecorder.AudioSource.MIC)
+            rec.setOutputFormat(MediaRecorder.OutputFormat.MPEG_4)
+            rec.setAudioEncoder(MediaRecorder.AudioEncoder.AAC)
+            rec.setOutputFile(tmp.absolutePath)
+            rec.prepare()
+            rec.start()
+            recorder = rec
+        } catch (e: Exception) {
+            runCatching { rec.release() }
+            recorder = null
+            currentTarget = null
+            throw e
         }
-        recorder = rec
     }
 
-    /** Остановить запись и сохранить файл (заменяя старый). Возвращает true при успехе. */
     fun stop(): Boolean {
         val rec = recorder ?: return false
         return runCatching {
             rec.stop()
             rec.release()
             recorder = null
-            val target = currentTarget!!
+            val target = currentTarget ?: return false
             val tmp = File(target.parentFile, "${target.nameWithoutExtension}.tmp")
             if (target.exists()) target.delete()
             tmp.renameTo(target)
+            currentTarget = null
             true
         }.getOrElse {
             runCatching { rec.release() }
             recorder = null
+            currentTarget = null
             false
         }
     }
 
-    /** Прослушать запись. */
     fun playback(name: String) {
         stopPlayback()
         val file = VoicePlayer.voiceFile(context, name)
