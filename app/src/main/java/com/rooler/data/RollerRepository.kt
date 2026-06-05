@@ -46,13 +46,14 @@ class RollerRepository(
         awaitClose { reg.remove() }
     }
 
-    suspend fun startSession(rollerId: Int, badgeId: Int, durationMins: Int) {
+    suspend fun startSession(rollerId: Int, badgeId: Int, durationMins: Int, rollerSize: String = "") {
         val now = System.currentTimeMillis()
         val base = PricingLogic.baseAmount(durationMins)
         // Пишем через Map: поле id помечено @DocumentId и его нельзя сериализовать.
         val data = mapOf(
             "dateKey" to dateKey(),
             "rollerId" to rollerId,
+            "rollerSize" to rollerSize,
             "badgeId" to badgeId,
             "durationMins" to durationMins,
             "startTime" to now,
