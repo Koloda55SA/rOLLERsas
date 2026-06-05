@@ -89,6 +89,14 @@ class MainViewModel(
         }
     }
 
+    fun forceCloseAll() = viewModelScope.launch {
+        try {
+            repo.forceCloseActive()
+        } catch (e: Exception) {
+            _error.value = "Ошибка закрытия: ${e.message}"
+        }
+    }
+
     private val _selectedDate = MutableStateFlow(RollerRepository.dateKey())
     val selectedDate: StateFlow<String> = _selectedDate.asStateFlow()
     fun selectDate(dateKey: String) { _selectedDate.value = dateKey }
@@ -122,8 +130,8 @@ class MainViewModel(
         repo.shiftFlow(dateKey).collect { _shift.value = it }
     }
 
-    fun openShift(dateKey: String) = viewModelScope.launch {
-        try { repo.openShift(dateKey) } catch (e: Exception) { _error.value = e.message }
+    fun openShift(dateKey: String, cashierName: String) = viewModelScope.launch {
+        try { repo.openShift(dateKey, cashierName) } catch (e: Exception) { _error.value = e.message }
     }
     fun closeShift(dateKey: String) = viewModelScope.launch {
         try { repo.closeShift(dateKey) } catch (e: Exception) { _error.value = e.message }

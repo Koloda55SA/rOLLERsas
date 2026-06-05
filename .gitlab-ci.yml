@@ -38,6 +38,7 @@ build_debug_apk:
 deploy_firestore_rules:
   stage: deploy
   image: node:20-slim
+  allow_failure: true
   before_script:
     - npm install -g firebase-tools
   script:

@@ -8,6 +8,7 @@ import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.ArrowBack
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
+import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.platform.LocalContext
@@ -17,6 +18,7 @@ import androidx.compose.ui.text.input.PasswordVisualTransformation
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import com.rooler.data.AdminSettings
+import com.rooler.data.RollerRepository
 import com.rooler.domain.ReportPdf
 import com.rooler.service.AnnouncementService
 import java.text.SimpleDateFormat
@@ -108,11 +110,25 @@ fun SettingsScreen(
 
                 Spacer(Modifier.height(12.dp))
                 Text("Смена", fontWeight = FontWeight.Bold, fontSize = 18.sp)
+                if (shift.cashierName.isNotEmpty()) {
+                    Text("\uD83D\uDC64 Кассир: ${shift.cashierName}", fontSize = 14.sp, fontWeight = FontWeight.Medium)
+                }
                 Text("Открыта: ${timeFmt(shift.openTime)}    Закрыта: ${timeFmt(shift.closeTime)}", fontSize = 14.sp)
                 Row(Modifier.fillMaxWidth().padding(top = 4.dp)) {
-                    Button(onClick = { vm.openShift(dateKey) }, modifier = Modifier.weight(1f)) { Text("Открыть") }
-                    Spacer(Modifier.width(8.dp))
-                    OutlinedButton(onClick = { vm.closeShift(dateKey) }, modifier = Modifier.weight(1f)) { Text("Закрыть") }
+                    if (shift.openTime <= 0 || shift.closeTime > 0) {
+                        Button(onClick = { vm.openShift(dateKey, shift.cashierName) }, modifier = Modifier.weight(1f)) { Text("Открыть") }
+                    }
+                    if (shift.openTime > 0 && shift.closeTime <= 0) {
+                        Spacer(Modifier.width(8.dp))
+                        OutlinedButton(onClick = { vm.closeShift(dateKey) }, modifier = Modifier.weight(1f)) { Text("Закрыть") }
+                    }
+                }
+                if (shift.openTime > 0 && shift.closeTime <= 0) {
+                    Spacer(Modifier.height(4.dp))
+                    OutlinedButton(onClick = { vm.forceCloseAll() }, modifier = Modifier.fillMaxWidth(),
+                        colors = ButtonDefaults.outlinedButtonColors(contentColor = Color(0xFFC62828))) {
+                        Text("\u26A0 Закрыть ВСЕ активные ролики", fontWeight = FontWeight.Bold)
+                    }
                 }
 
                 Spacer(Modifier.height(12.dp))
@@ -165,7 +181,7 @@ fun SettingsScreen(
                 }
                 item {
                     Spacer(Modifier.height(16.dp))
-                    Row(verticalAlignment = androidx.compose.ui.Alignment.CenterVertically) {
+                    Row(verticalAlignment = Alignment.CenterVertically) {
                         Text("Разраб: ", fontSize = 11.sp, color = MaterialTheme.colorScheme.onSurfaceVariant)
                         Text("Рахманов Сыймыкбек", fontSize = 11.sp, fontWeight = FontWeight.Medium)
                         Spacer(Modifier.width(4.dp))

@@ -14,6 +14,7 @@ import androidx.lifecycle.viewmodel.compose.viewModel
 import com.rooler.data.AdminSettings
 import com.rooler.data.RollerGroup
 import com.rooler.data.RollerGroups
+import com.rooler.data.RollerRepository
 import com.rooler.service.TimerService
 
 enum class Screen { KANBAN, SETTINGS, VOICE_SETUP, ADMIN }
@@ -38,7 +39,10 @@ class MainActivity : ComponentActivity() {
                 var screen by remember { mutableStateOf(Screen.KANBAN) }
                 var showPin by remember { mutableStateOf(false) }
 
-                LaunchedEffect(Unit) { vm.setTotalRollers(admin.totalRollers) }
+                LaunchedEffect(Unit) {
+                    vm.setTotalRollers(admin.totalRollers)
+                    vm.loadShift(RollerRepository.dateKey())
+                }
 
                 when (screen) {
                     Screen.KANBAN -> KanbanScreen(

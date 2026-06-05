@@ -80,6 +80,18 @@ class RollerRepository(
         ).await()
     }
 
+    suspend fun forceCloseActive() {
+        val snap = db.collection(TRANSACTIONS).whereEqualTo("isActive", true).get().await()
+        val now = System.currentTimeMillis()
+        for (doc in snap.documents) {
+            doc.reference.update(mapOf(
+                "isActive" to false,
+                "endTime" to now,
+                "isExtraForgiven" to true
+            )).await()
+        }
+    }
+
     suspend fun saveExpense(dateKey: String, expense: DailyExpense) {
         db.collection(DAILY_EXPENSES).document(dateKey).set(expense).await()
     }
@@ -95,9 +107,9 @@ class RollerRepository(
         awaitClose { reg.remove() }
     }
 
-    suspend fun openShift(dateKey: String) {
+    suspend fun openShift(dateKey: String, cashierName: String) {
         db.collection(SHIFTS).document(dateKey)
-            .set(mapOf("dateKey" to dateKey, "openTime" to System.currentTimeMillis()),
+            .set(mapOf("dateKey" to dateKey, "cashierName" to cashierName, "openTime" to System.currentTimeMillis()),
                 com.google.firebase.firestore.SetOptions.merge()).await()
     }
 
