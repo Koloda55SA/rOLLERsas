@@ -64,6 +64,7 @@ fun SettingsScreen(
     vm: MainViewModel,
     onOpenVoiceSetup: () -> Unit,
     onOpenAdmin: () -> Unit,
+    onOpenShiftHistory: () -> Unit,
     onBack: () -> Unit
 ) {
     val context = LocalContext.current
@@ -72,6 +73,7 @@ fun SettingsScreen(
     val expense by vm.expense.collectAsState()
     val analytics by vm.analytics.collectAsState()
     val shift by vm.shift.collectAsState()
+    var successMsg by remember { mutableStateOf<String?>(null) }
 
     LaunchedEffect(dateKey) { vm.loadAccounting(dateKey); vm.loadShift(dateKey) }
 
@@ -107,6 +109,10 @@ fun SettingsScreen(
                         Text("\u2699 Админ")
                     }
                 }
+                Spacer(Modifier.height(8.dp))
+                OutlinedButton(onClick = onOpenShiftHistory, modifier = Modifier.fillMaxWidth()) {
+                    Text("\uD83D\uDCDC История смен")
+                }
 
                 Spacer(Modifier.height(12.dp))
                 Text("Смена", fontWeight = FontWeight.Bold, fontSize = 18.sp)
@@ -116,16 +122,19 @@ fun SettingsScreen(
                 Text("Открыта: ${timeFmt(shift.openTime)}    Закрыта: ${timeFmt(shift.closeTime)}", fontSize = 14.sp)
                 Row(Modifier.fillMaxWidth().padding(top = 4.dp)) {
                     if (shift.openTime <= 0 || shift.closeTime > 0) {
-                        Button(onClick = { vm.openShift(dateKey, shift.cashierName) }, modifier = Modifier.weight(1f)) { Text("Открыть") }
+                        Button(onClick = { vm.openShift(dateKey, shift.cashierName); successMsg = "Смена открыта!" },
+                            modifier = Modifier.weight(1f)) { Text("Открыть") }
                     }
                     if (shift.openTime > 0 && shift.closeTime <= 0) {
                         Spacer(Modifier.width(8.dp))
-                        OutlinedButton(onClick = { vm.closeShift(dateKey) }, modifier = Modifier.weight(1f)) { Text("Закрыть") }
+                        OutlinedButton(onClick = { vm.closeShift(dateKey); successMsg = "Смена закрыта!" },
+                            modifier = Modifier.weight(1f)) { Text("Закрыть") }
                     }
                 }
                 if (shift.openTime > 0 && shift.closeTime <= 0) {
                     Spacer(Modifier.height(4.dp))
-                    OutlinedButton(onClick = { vm.forceCloseAll() }, modifier = Modifier.fillMaxWidth(),
+                    OutlinedButton(onClick = { vm.forceCloseAll(); successMsg = "Все ролики закрыты!" },
+                        modifier = Modifier.fillMaxWidth(),
                         colors = ButtonDefaults.outlinedButtonColors(contentColor = Color(0xFFC62828))) {
                         Text("\u26A0 Закрыть ВСЕ активные ролики", fontWeight = FontWeight.Bold)
                     }
@@ -142,7 +151,10 @@ fun SettingsScreen(
                 OutlinedTextField(comment, { comment = it },
                     label = { Text("Комментарий") }, modifier = Modifier.fillMaxWidth())
                 Button(
-                    onClick = { vm.saveExpense(dateKey, salary.toIntOrNull() ?: 0, other.toIntOrNull() ?: 0, comment) },
+                    onClick = {
+                        vm.saveExpense(dateKey, salary.toIntOrNull() ?: 0, other.toIntOrNull() ?: 0, comment)
+                        successMsg = "Расходы сохранены!"
+                    },
                     modifier = Modifier.fillMaxWidth().padding(top = 8.dp)
                 ) { Text("\uD83D\uDCBE Сохранить расходы") }
 
@@ -169,6 +181,7 @@ fun SettingsScreen(
                                 otherExpenses = expense.otherExpenses
                             )
                             ReportPdf.share(context, file)
+                            successMsg = "PDF отчёт создан!"
                         },
                         modifier = Modifier.fillMaxWidth().padding(top = 12.dp)
                     ) { Text("\uD83D\uDCC4 Экспорт в PDF") }
@@ -179,17 +192,10 @@ fun SettingsScreen(
                 items(a.rollerUsage) { (rollerId, count) ->
                     StatRow("Ролик #$rollerId", "$count выдач")
                 }
-                item {
-                    Spacer(Modifier.height(16.dp))
-                    Row(verticalAlignment = Alignment.CenterVertically) {
-                        Text("Разраб: ", fontSize = 11.sp, color = MaterialTheme.colorScheme.onSurfaceVariant)
-                        Text("Рахманов Сыймыкбек", fontSize = 11.sp, fontWeight = FontWeight.Medium)
-                        Spacer(Modifier.width(4.dp))
-                        Text("\uD83D\uDCF8 @rahmanov_", fontSize = 11.sp, color = Color(0xFFE91E63), fontWeight = FontWeight.Bold)
-                    }
-                }
             } ?: item { Text("Нет данных за этот день") }
         }
+
+        WatermarkBar()
     }
 
     if (showDatePicker) {
@@ -204,6 +210,15 @@ fun SettingsScreen(
             },
             dismissButton = { TextButton(onClick = { showDatePicker = false }) { Text("Отмена") } }
         ) { DatePicker(state = dpState) }
+    }
+
+    successMsg?.let { msg ->
+        Snackbar(
+            modifier = Modifier.padding(12.dp),
+            containerColor = Color(0xFF1B5E20),
+            contentColor = Color.White
+        ) { Text("\u2705 $msg", fontWeight = FontWeight.Medium) }
+        LaunchedEffect(msg) { kotlinx.coroutines.delay(2500); successMsg = null }
     }
 }
 

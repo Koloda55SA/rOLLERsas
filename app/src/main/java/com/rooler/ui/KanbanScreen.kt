@@ -49,6 +49,19 @@ fun fmt(ms: Long): String {
 }
 
 @Composable
+fun WatermarkBar() {
+    Row(
+        Modifier.fillMaxWidth().background(Color(0xFF263238)).padding(horizontal = 8.dp, vertical = 2.dp),
+        verticalAlignment = Alignment.CenterVertically
+    ) {
+        Text("Разраб: Рахманов Сыймыкбек", color = WATERMARK_COLOR, fontSize = 10.sp)
+        Spacer(Modifier.width(6.dp))
+        Text("\uD83D\uDCF8 __rahmanov___", color = Color(0xFFE91E63), fontSize = 10.sp, fontWeight = FontWeight.Bold)
+        Spacer(Modifier.weight(1f))
+    }
+}
+
+@Composable
 fun KanbanScreen(
     vm: MainViewModel,
     totalRollers: Int,
@@ -62,6 +75,7 @@ fun KanbanScreen(
     var returnSession by remember { mutableStateOf<SessionView?>(null) }
     var showForceCloseDialog by remember { mutableStateOf(false) }
     var showShiftDialog by remember { mutableStateOf(false) }
+    var successMsg by remember { mutableStateOf<String?>(null) }
 
     val busyRollers = state.riding.map { it.tx.rollerId } +
             state.ending.map { it.tx.rollerId } +
@@ -71,13 +85,7 @@ fun KanbanScreen(
         groups.firstOrNull { rollerId in it.from..it.to }?.size ?: ""
     }
 
-    val shiftOpen = shift.openTime > 0
-    val shiftClosed = shift.closeTime > 0
-    val shiftActive = shiftOpen && !shiftClosed
-
-    LaunchedEffect(shiftOpen, shiftClosed) {
-        if (!shiftOpen || shiftClosed) showShiftDialog = true
-    }
+    val shiftActive = shift.openTime > 0 && shift.closeTime <= 0L
 
     Column(Modifier.fillMaxSize()) {
         Row(
@@ -103,21 +111,32 @@ fun KanbanScreen(
                     Icon(Icons.Default.Close, "Закрыть все", tint = Color(0xFFFF8A80))
                 }
             }
+            if (!shiftActive) {
+                Button(onClick = { showShiftDialog = true },
+                    colors = ButtonDefaults.buttonColors(containerColor = GREEN),
+                    modifier = Modifier.height(32.dp)) {
+                    Text("Открыть смену", fontSize = 12.sp, fontWeight = FontWeight.Bold)
+                }
+                Spacer(Modifier.width(4.dp))
+            }
             IconButton(onClick = onOpenSettings) {
                 Icon(Icons.Default.Settings, "Настройки", tint = Color.White)
             }
         }
 
         if (!shiftActive) {
-            Box(Modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
+            Box(Modifier.weight(1f).fillMaxWidth(), contentAlignment = Alignment.Center) {
                 Column(horizontalAlignment = Alignment.CenterHorizontally) {
-                    Text("Смена закрыта", fontSize = 24.sp, fontWeight = FontWeight.Bold, color = Color.Gray)
-                    Spacer(Modifier.height(8.dp))
-                    Button(onClick = { showShiftDialog = true }) { Text("Открыть смену") }
+                    Text("\uD83D\uDD12 Смена закрыта", fontSize = 28.sp, fontWeight = FontWeight.Bold, color = Color.Gray)
+                    Spacer(Modifier.height(12.dp))
+                    Button(onClick = { showShiftDialog = true },
+                        colors = ButtonDefaults.buttonColors(containerColor = GREEN)) {
+                        Text("\uD83D\uDD13 Открыть смену", fontSize = 18.sp, fontWeight = FontWeight.Bold)
+                    }
                 }
             }
         } else {
-            Row(Modifier.fillMaxSize().padding(4.dp)) {
+            Row(Modifier.weight(1f).fillMaxWidth().padding(4.dp)) {
                 GroupsColumn(
                     groups = groups,
                     freeRollers = state.freeRollers,
@@ -134,16 +153,7 @@ fun KanbanScreen(
             }
         }
 
-        Row(
-            Modifier.fillMaxWidth().background(Color(0xFF263238)).padding(horizontal = 8.dp, vertical = 2.dp),
-            verticalAlignment = Alignment.CenterVertically
-        ) {
-            Text("Разраб: Рахманов Сыймыкбек", color = WATERMARK_COLOR, fontSize = 10.sp)
-            Spacer(Modifier.width(6.dp))
-            Text("\uD83D\uDCF8 @rahmanov_", color = Color(0xFFE91E63), fontSize = 10.sp, fontWeight = FontWeight.Bold)
-            Spacer(Modifier.weight(1f))
-            Text("v1.2-groups-announcements", color = WATERMARK_COLOR, fontSize = 9.sp)
-        }
+        WatermarkBar()
     }
 
     giveOutRoller?.let { roller ->
@@ -154,6 +164,7 @@ fun KanbanScreen(
             onStart = { badge, mins ->
                 vm.startSession(roller, badge, mins, sizeOfRoller(roller))
                 giveOutRoller = null
+                successMsg = "Ролик #$roller выдан! Бейдж $badge, ${mins} мин"
             }
         )
     }
@@ -165,6 +176,7 @@ fun KanbanScreen(
             onConfirm = { forgiven ->
                 vm.returnSession(sv.tx, sv.extraAmount, forgiven)
                 returnSession = null
+                successMsg = "Ролик #${sv.tx.rollerId} возвращён!"
             }
         )
     }
@@ -172,41 +184,56 @@ fun KanbanScreen(
     if (showForceCloseDialog) {
         ForceCloseDialog(
             activeCount = busyRollers.size,
-            onConfirm = { vm.forceCloseAll(); showForceCloseDialog = false },
+            onConfirm = {
+                vm.forceCloseAll()
+                showForceCloseDialog = false
+                successMsg = "Все ${busyRollers.size} роликов закрыты!"
+            },
             onDismiss = { showForceCloseDialog = false }
         )
     }
 
-    if (showShiftDialog) {
+    if (showShiftDialog && !shiftActive) {
         ShiftOpenDialog(
-            shift = shift,
             onOpen = { name ->
                 vm.openShift(RollerRepository.dateKey(), name)
-                vm.loadShift(RollerRepository.dateKey())
                 showShiftDialog = false
+                successMsg = "Смена открыта! Кассир: $name"
             },
-            onDismiss = {
-                if (shiftActive) showShiftDialog = false
-            }
+            onDismiss = { showShiftDialog = false }
         )
+    }
+
+    successMsg?.let { msg ->
+        Snackbar(
+            modifier = Modifier.padding(12.dp),
+            containerColor = Color(0xFF1B5E20),
+            contentColor = Color.White
+        ) {
+            Row(verticalAlignment = Alignment.CenterVertically) {
+                Text("\u2705 $msg", fontWeight = FontWeight.Medium)
+            }
+        }
+        LaunchedEffect(msg) {
+            kotlinx.coroutines.delay(2500)
+            successMsg = null
+        }
     }
 }
 
 @Composable
 private fun ShiftOpenDialog(
-    shift: Shift,
     onOpen: (String) -> Unit,
     onDismiss: () -> Unit
 ) {
     var name by remember { mutableStateOf("") }
-    val canDismiss = shift.openTime > 0 && shift.closeTime <= 0L
 
     AlertDialog(
-        onDismissRequest = { if (canDismiss) onDismiss() },
+        onDismissRequest = onDismiss,
         title = { Text("\uD83D\uDD13 Открытие смены", fontWeight = FontWeight.Bold) },
         text = {
             Column {
-                Text("Введите ваше имя — оно попадёт в отчёт смены.", fontSize = 14.sp)
+                Text("Введите ваше имя — оно попадёт в отчёт.", fontSize = 14.sp)
                 Spacer(Modifier.height(8.dp))
                 OutlinedTextField(
                     value = name,
@@ -222,7 +249,48 @@ private fun ShiftOpenDialog(
                 enabled = name.isNotBlank()) {
                 Text("Открыть смену", fontWeight = FontWeight.Bold)
             }
-        }
+        },
+        dismissButton = { TextButton(onClick = onDismiss) { Text("Отмена") } }
+    )
+}
+
+@Composable
+private fun ForceCloseDialog(
+    activeCount: Int,
+    onConfirm: () -> Unit,
+    onDismiss: () -> Unit
+) {
+    var input by remember { mutableStateOf("") }
+    val inputInt = input.toIntOrNull()
+    val confirmed = inputInt == activeCount
+
+    AlertDialog(
+        onDismissRequest = onDismiss,
+        title = { Text("\u26A0 Закрыть ВСЕ активные?", fontWeight = FontWeight.Bold, color = RED) },
+        text = {
+            Column {
+                Text("Активных: $activeCount. Все будут закрыты (доплата прощена).", fontSize = 14.sp)
+                Spacer(Modifier.height(12.dp))
+                Text("Введите $activeCount для подтверждения:", fontWeight = FontWeight.Bold, fontSize = 14.sp)
+                Spacer(Modifier.height(8.dp))
+                OutlinedTextField(
+                    value = input,
+                    onValueChange = { input = it.filter { c -> c.isDigit() } },
+                    label = { Text("Количество активных") },
+                    keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Number),
+                    singleLine = true,
+                    modifier = Modifier.fillMaxWidth(),
+                    isError = input.isNotEmpty() && !confirmed
+                )
+            }
+        },
+        confirmButton = {
+            Button(onClick = onConfirm, enabled = confirmed,
+                colors = ButtonDefaults.buttonColors(containerColor = RED)) {
+                Text("Закрыть все $activeCount", fontWeight = FontWeight.Bold)
+            }
+        },
+        dismissButton = { TextButton(onClick = onDismiss) { Text("Отмена") } }
     )
 }
 
@@ -356,44 +424,4 @@ private fun SessionCard(
             }
         }
     }
-}
-
-@Composable
-private fun ForceCloseDialog(
-    activeCount: Int,
-    onConfirm: () -> Unit,
-    onDismiss: () -> Unit
-) {
-    var input by remember { mutableStateOf("") }
-    val inputInt = input.toIntOrNull()
-    val confirmed = inputInt == activeCount
-
-    AlertDialog(
-        onDismissRequest = onDismiss,
-        title = { Text("\u26A0 Закрыть ВСЕ активные?", fontWeight = FontWeight.Bold, color = RED) },
-        text = {
-            Column {
-                Text("Активных роликов: $activeCount. Все будут принудительно возвращены (доплата прощена).", fontSize = 14.sp)
-                Spacer(Modifier.height(12.dp))
-                Text("Введите число $activeCount для подтверждения:", fontWeight = FontWeight.Bold, fontSize = 14.sp)
-                Spacer(Modifier.height(8.dp))
-                OutlinedTextField(
-                    value = input,
-                    onValueChange = { input = it.filter { c -> c.isDigit() } },
-                    label = { Text("Количество активных") },
-                    keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Number),
-                    singleLine = true,
-                    modifier = Modifier.fillMaxWidth(),
-                    isError = input.isNotEmpty() && !confirmed
-                )
-            }
-        },
-        confirmButton = {
-            Button(onClick = onConfirm, enabled = confirmed,
-                colors = ButtonDefaults.buttonColors(containerColor = RED)) {
-                Text("Закрыть все $activeCount", fontWeight = FontWeight.Bold)
-            }
-        },
-        dismissButton = { TextButton(onClick = onDismiss) { Text("Отмена") } }
-    )
 }

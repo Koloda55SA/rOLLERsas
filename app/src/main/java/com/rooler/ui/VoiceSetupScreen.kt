@@ -54,7 +54,7 @@ fun VoiceSetupScreen(totalBadges: Int, onBack: () -> Unit) {
     val items = remember(totalBadges, announcementMins) {
         buildList {
             add(VoiceItem("time_ended", "\u23F0 Общая фраза: «...убакты\u014Bуз б\u00FCтт\u00FC, кассага кайрылы\u014Bыз»"))
-            add(VoiceItem("closing_reminder", "\uD83D\uDD34 Фраза закрытия: «...закрывается, подписывайтесь @rahmanov_!»"))
+            add(VoiceItem("closing_reminder", "\uD83D\uDD34 Фраза закрытия: «...закрывается, подписывайтесь __rahmanov___!»"))
             for (m in announcementMins) {
                 add(VoiceItem("announce_$m", "\uD83D\uDCE2 Объявление за $m мин до закрытия"))
             }

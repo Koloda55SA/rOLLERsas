@@ -17,7 +17,7 @@ import com.rooler.data.RollerGroups
 import com.rooler.data.RollerRepository
 import com.rooler.service.TimerService
 
-enum class Screen { KANBAN, SETTINGS, VOICE_SETUP, ADMIN }
+enum class Screen { KANBAN, SETTINGS, VOICE_SETUP, ADMIN, SHIFT_HISTORY }
 
 class MainActivity : ComponentActivity() {
 
@@ -55,6 +55,7 @@ class MainActivity : ComponentActivity() {
                         vm = vm,
                         onOpenVoiceSetup = { screen = Screen.VOICE_SETUP },
                         onOpenAdmin = { screen = Screen.ADMIN },
+                        onOpenShiftHistory = { screen = Screen.SHIFT_HISTORY },
                         onBack = { screen = Screen.KANBAN }
                     )
                     Screen.VOICE_SETUP -> VoiceSetupScreen(
@@ -67,6 +68,9 @@ class MainActivity : ComponentActivity() {
                             vm.setTotalRollers(admin.totalRollers)
                             screen = Screen.SETTINGS
                         }
+                    )
+                    Screen.SHIFT_HISTORY -> ShiftHistoryScreen(
+                        onBack = { screen = Screen.SETTINGS }
                     )
                 }
 

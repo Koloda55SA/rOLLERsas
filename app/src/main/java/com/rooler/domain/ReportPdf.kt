@@ -41,38 +41,82 @@ object ReportPdf {
             canvas.drawText(text, x, y, paint); y += dy
         }
 
-        line("\u041E\u0442\u0447\u0451\u0442 \u0441\u043C\u0435\u043D\u044B \u2014 \u0420\u043E\u043B\u043B\u0435\u0440\u0434\u0440\u043E\u043C", title, 28f)
-        line("\u0414\u0430\u0442\u0430: $dateKey", p)
+        line("Отчёт смены — Роллердром", title, 28f)
+        line("Дата: $dateKey", p)
         if (shift.cashierName.isNotEmpty()) {
-            line("\u041A\u0430\u0441\u0441\u0438\u0440: ${shift.cashierName}", p)
+            line("Кассир: ${shift.cashierName}", p)
         }
-        line("\u041E\u0442\u043A\u0440\u044B\u0442\u0438\u0435: ${timeFmt(shift.openTime)}    \u0417\u0430\u043A\u0440\u044B\u0442\u0438\u0435: ${timeFmt(shift.closeTime)}", p, 28f)
+        line("Открытие: ${timeFmt(shift.openTime)}    Закрытие: ${timeFmt(shift.closeTime)}", p, 28f)
 
-        line("\u0418\u0442\u043E\u0433\u0438 \u0434\u043D\u044F", h)
-        line("\u041A\u043B\u0438\u0435\u043D\u0442\u043E\u0432: ${analytics.clientsCount}", p)
-        line("\u0427\u0430\u0441\u044B \u043F\u0440\u043E\u043A\u0430\u0442\u0430: %.1f \u0447".format(analytics.totalHours), p)
-        line("\u0412\u044B\u0440\u0443\u0447\u043A\u0430: ${analytics.totalRevenue} \u0441", p)
-        line("\u041F\u0440\u043E\u0449\u0451\u043D\u043E \u0434\u043E\u043F\u043B\u0430\u0442: ${analytics.forgivenExtra} \u0441", p, 28f)
+        line("Итоги дня", h)
+        line("Клиентов: ${analytics.clientsCount}", p)
+        line("Часы проката: %.1f ч".format(analytics.totalHours), p)
+        line("Выручка: ${analytics.totalRevenue} с", p)
+        line("Прощёно доплат: ${analytics.forgivenExtra} с", p, 28f)
 
-        line("\u0420\u0430\u0441\u0445\u043E\u0434\u044B", h)
-        line("\u0417\u0430\u0440\u043F\u043B\u0430\u0442\u0430 ($staffCount \u0441\u043E\u0442\u0440.): $salary \u0441", p)
-        line("\u041F\u0440\u043E\u0447\u0438\u0435: $otherExpenses \u0441", p, 28f)
+        line("Расходы", h)
+        line("Зарплата ($staffCount сотр.): $salary с", p)
+        line("Прочие: $otherExpenses с", p, 28f)
 
-        line("\u0427\u0418\u0421\u0422\u0410\u042F \u041F\u0420\u0418\u0411\u042B\u041B\u042C: ${analytics.netProfit} \u0441", h, 30f)
+        line("ЧИСТАЯ ПРИБЫЛЬ: ${analytics.netProfit} с", h, 30f)
 
-        line("\u0418\u0437\u043D\u043E\u0441 \u0440\u043E\u043B\u0438\u043A\u043E\u0432", h)
+        line("Износ роликов", h)
         analytics.rollerUsage.take(25).forEach { (rollerId, count) ->
             if (y > 800f) return@forEach
-            line("\u0420\u043E\u043B\u0438\u043A #$rollerId  \u2014  $count \u0432\u044B\u0434\u0430\u0447", p, 16f)
+            line("Ролик #$rollerId  —  $count выдач", p, 16f)
         }
 
         y = 820f
-        line("\u0420\u0430\u0437\u0440\u0430\u0431: \u0420\u0430\u0445\u043C\u0430\u043D\u043E\u0432 \u0421\u044B\u0439\u043C\u044B\u043A\u0431\u0435\u043A | @rahmanov_", small)
+        line("Разраб: Рахманов Сыймыкбек | __rahmanov___", small)
 
         doc.finishPage(page)
 
         val dir = File(context.getExternalFilesDir(null), "reports").apply { mkdirs() }
         val file = File(dir, "smena_$dateKey.pdf")
+        file.outputStream().use { doc.writeTo(it) }
+        doc.close()
+        return file
+    }
+
+    fun generateShiftHistory(
+        context: Context,
+        shifts: List<Pair<String, Shift>>
+    ): File {
+        val doc = PdfDocument()
+        val pageInfo = PdfDocument.PageInfo.Builder(595, 842, 1).create()
+        val page = doc.startPage(pageInfo)
+        val canvas = page.canvas
+
+        val title = Paint().apply { textSize = 18f; isFakeBoldText = true }
+        val h = Paint().apply { textSize = 13f; isFakeBoldText = true }
+        val p = Paint().apply { textSize = 12f }
+        val small = Paint().apply { textSize = 10f }
+        val bold = Paint().apply { textSize = 12f; isFakeBoldText = true }
+
+        var y = 40f
+        val x = 40f
+        fun line(text: String, paint: Paint = p, dy: Float = 18f) {
+            canvas.drawText(text, x, y, paint); y += dy
+        }
+
+        line("История смен — Роллердром", title, 30f)
+        line("Всего смен: ${shifts.size}", h, 24f)
+
+        shifts.forEach { (dateKey, shift) ->
+            if (y > 780f) return@forEach
+            val name = if (shift.cashierName.isNotEmpty()) shift.cashierName else "—"
+            val openT = timeFmt(shift.openTime)
+            val closeT = timeFmt(shift.closeTime)
+            line("$dateKey  |  Кассир: $name  |  $openT — $closeT", bold, 18f)
+        }
+
+        y = 820f
+        line("Разраб: Рахманов Сыймыкбек | __rahmanov___", small)
+
+        doc.finishPage(page)
+
+        val dir = File(context.getExternalFilesDir(null), "reports").apply { mkdirs() }
+        val file = File(dir, "shifts_history.pdf")
         file.outputStream().use { doc.writeTo(it) }
         doc.close()
         return file
@@ -85,7 +129,7 @@ object ReportPdf {
             putExtra(Intent.EXTRA_STREAM, uri)
             addFlags(Intent.FLAG_GRANT_READ_URI_PERMISSION)
         }
-        context.startActivity(Intent.createChooser(intent, "\u041E\u0442\u043F\u0440\u0430\u0432\u0438\u0442\u044C \u043E\u0442\u0447\u0451\u0442").apply {
+        context.startActivity(Intent.createChooser(intent, "Отправить отчёт").apply {
             addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)
         })
     }

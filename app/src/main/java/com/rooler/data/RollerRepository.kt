@@ -119,6 +119,17 @@ class RollerRepository(
                 com.google.firebase.firestore.SetOptions.merge()).await()
     }
 
+    suspend fun loadShiftHistory(limit: Int = 30): List<Pair<String, com.rooler.data.models.Shift>> {
+        val snap = db.collection(SHIFTS)
+            .orderBy("openTime", Query.Direction.DESCENDING)
+            .limit(limit.toLong())
+            .get().await()
+        return snap.documents.mapNotNull { doc ->
+            val shift = doc.toObject(com.rooler.data.models.Shift::class.java) ?: return@mapNotNull null
+            doc.id to shift
+        }
+    }
+
     fun expenseFlow(dateKey: String): Flow<DailyExpense> = callbackFlow {
         val reg = db.collection(DAILY_EXPENSES).document(dateKey)
             .addSnapshotListener { snap, err ->

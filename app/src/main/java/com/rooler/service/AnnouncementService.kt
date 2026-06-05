@@ -89,7 +89,7 @@ class AnnouncementService : Service() {
         val mgr = getSystemService(Context.NOTIFICATION_SERVICE) as NotificationManager
         val n = NotificationCompat.Builder(this, "roller_alert")
             .setContentTitle("Закрываемся через $minutesBefore мин!")
-            .setContentText("Подписывайтесь: @rahmanov_")
+            .setContentText("Подписывайтесь: __rahmanov___")
             .setSmallIcon(android.R.drawable.ic_lock_idle_alarm)
             .setAutoCancel(true)
             .build()

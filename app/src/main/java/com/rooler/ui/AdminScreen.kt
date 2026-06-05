@@ -152,7 +152,7 @@ fun AdminScreen(onBack: () -> Unit) {
                 Text("Разраб: ", fontSize = 12.sp, color = MaterialTheme.colorScheme.onSurfaceVariant)
                 Text("Рахманов Сыймыкбек", fontSize = 12.sp, fontWeight = FontWeight.Medium)
                 Spacer(Modifier.width(4.dp))
-                Text("\uD83D\uDCF8 @rahmanov_", fontSize = 12.sp, color = Color(0xFFE91E63), fontWeight = FontWeight.Bold)
+                Text("\uD83D\uDCF8 __rahmanov___", fontSize = 12.sp, color = Color(0xFFE91E63), fontWeight = FontWeight.Bold)
             }
 
             Spacer(Modifier.height(20.dp))
