@@ -24,170 +24,71 @@ import com.rooler.data.RollerGroup
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun AdminScreen(onBack: () -> Unit) {
-    val context = LocalContext.current
-    val settings = remember { AdminSettings(context) }
-
-    var rollers by remember { mutableStateOf(settings.totalRollers.toString()) }
-    var staff by remember { mutableStateOf(settings.staffCount.toString()) }
-    var salary by remember { mutableStateOf(settings.salaryPerStaff.toString()) }
-    var openT by remember { mutableStateOf(settings.openTimeStr) }
-    var closeT by remember { mutableStateOf(settings.closeTimeStr) }
-    var pin by remember { mutableStateOf(settings.pin) }
-    var adsEnabled by remember { mutableStateOf(settings.adsEnabled) }
+    val ctx = LocalContext.current
+    val s = remember { AdminSettings(ctx) }
+    var rollers by remember { mutableStateOf(s.totalRollers.toString()) }
+    var staff by remember { mutableStateOf(s.staffCount.toString()) }
+    var salary by remember { mutableStateOf(s.salaryPerStaff.toString()) }
+    var openT by remember { mutableStateOf(s.openTimeStr) }
+    var closeT by remember { mutableStateOf(s.closeTimeStr) }
+    var pin by remember { mutableStateOf(s.pin) }
+    var ads by remember { mutableStateOf(s.adsEnabled) }
+    var groups by remember { mutableStateOf(s.loadRollerGroups()) }
+    var annMins by remember { mutableStateOf(s.loadAnnouncementMinutes()) }
     var saved by remember { mutableStateOf(false) }
 
-    var groups by remember { mutableStateOf(settings.loadRollerGroups()) }
-    var announcementMins by remember { mutableStateOf(settings.loadAnnouncementMinutes()) }
+    Scaffold(containerColor = R.BG, topBar = { TopAppBar(title = { Text("Админ", color = R.T1) }, navigationIcon = { IconButton(onClick = onBack) { Icon(Icons.Default.ArrowBack, null, tint = R.T2) } }, colors = TopAppBarDefaults.topAppBarColors(containerColor = R.S1)) }) { pad ->
+        Column(Modifier.padding(pad).fillMaxSize()) {
+            Column(Modifier.weight(1f).padding(14.dp).verticalScroll(rememberScrollState())) {
+                Text("Основные", fontWeight = FontWeight.Bold, fontSize = 17.sp, color = R.T1)
+                Spacer(Modifier.height(4.dp))
+                NF("Роликов", rollers) { rollers = it }; NF("Сотрудниц", staff) { staff = it }; NF("ЗП/сотр.", salary) { salary = it }
+                OutlinedTextField(openT, { openT = it }, label = { Text("Открытие ЧЧ:ММ") }, singleLine = true, modifier = Modifier.fillMaxWidth().padding(vertical = 3.dp), colors = tfc())
+                OutlinedTextField(closeT, { closeT = it }, label = { Text("Закрытие ЧЧ:ММ") }, singleLine = true, modifier = Modifier.fillMaxWidth().padding(vertical = 3.dp), colors = tfc())
+                NF("PIN", pin) { pin = it.take(4) }
+                Text("ЗП за смену: ${(staff.toIntOrNull() ?: 0) * (salary.toIntOrNull() ?: 0)} с", fontSize = 13.sp, color = R.T2)
+                Row(verticalAlignment = Alignment.CenterVertically) { Text("Реклама", modifier = Modifier.weight(1f), color = R.T2); Switch(ads, { ads = it }, colors = SwitchDefaults.colors(checkedTrackColor = R.PR)) }
 
-    Scaffold(topBar = {
-        TopAppBar(
-            title = { Text("Админ-настройки") },
-            navigationIcon = { IconButton(onClick = onBack) { Icon(Icons.Default.ArrowBack, "Назад") } }
-        )
-    }) { pad ->
-        Column(
-            Modifier.padding(pad).padding(16.dp).verticalScroll(rememberScrollState())
-        ) {
-            Text("Основные", fontWeight = FontWeight.Bold, fontSize = 18.sp)
-            Spacer(Modifier.height(4.dp))
-            NumField("Количество роликов", rollers) { rollers = it }
-            NumField("Количество сотрудниц", staff) { staff = it }
-            NumField("Зарплата на сотрудницу (сом)", salary) { salary = it }
-            OutlinedTextField(openT, { openT = it }, label = { Text("Открытие (ЧЧ:ММ)") },
-                modifier = Modifier.fillMaxWidth().padding(vertical = 4.dp), singleLine = true)
-            OutlinedTextField(closeT, { closeT = it }, label = { Text("Закрытие (ЧЧ:ММ)") },
-                modifier = Modifier.fillMaxWidth().padding(vertical = 4.dp), singleLine = true)
-            NumField("PIN-код", pin) { pin = it.take(4) }
-
-            Spacer(Modifier.height(8.dp))
-            Text("Зарплата за смену: ${(staff.toIntOrNull() ?: 0) * (salary.toIntOrNull() ?: 0)} с",
-                fontSize = 14.sp, fontWeight = FontWeight.Medium)
-
-            Spacer(Modifier.height(16.dp))
-            HorizontalDivider()
-            Spacer(Modifier.height(12.dp))
-
-            Text("Группы роликов по размерам", fontWeight = FontWeight.Bold, fontSize = 18.sp)
-            Text("Добавьте группы, чтобы не листать 50 роликов. Пример: рз.31 = ролики 1-10",
-                fontSize = 12.sp, color = MaterialTheme.colorScheme.onSurfaceVariant)
-            Spacer(Modifier.height(8.dp))
-
-            groups.forEachIndexed { i, g ->
-                Card(Modifier.fillMaxWidth().padding(vertical = 4.dp)) {
-                    Row(
-                        Modifier.padding(8.dp),
-                        verticalAlignment = Alignment.CenterVertically
-                    ) {
-                        OutlinedTextField(g.size, { groups = groups.toMutableList().apply { this[i] = RollerGroup(it, g.from, g.to) } },
-                            label = { Text("Размер") }, modifier = Modifier.weight(1f), singleLine = true)
-                        Spacer(Modifier.width(4.dp))
-                        OutlinedTextField(g.from.toString(), {
-                            val n = it.toIntOrNull() ?: g.from
-                            groups = groups.toMutableList().apply { this[i] = RollerGroup(g.size, n, g.to) }
-                        }, label = { Text("От") }, modifier = Modifier.weight(0.7f), singleLine = true,
-                            keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Number))
-                        Spacer(Modifier.width(4.dp))
-                        OutlinedTextField(g.to.toString(), {
-                            val n = it.toIntOrNull() ?: g.to
-                            groups = groups.toMutableList().apply { this[i] = RollerGroup(g.size, g.from, n) }
-                        }, label = { Text("До") }, modifier = Modifier.weight(0.7f), singleLine = true,
-                            keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Number))
-                        IconButton(onClick = { groups = groups.toMutableList().apply { removeAt(i) } }) {
-                            Icon(Icons.Default.Delete, "Удалить", tint = MaterialTheme.colorScheme.error)
+                Spacer(Modifier.height(14.dp)); HorizontalDivider(color = R.DV); Spacer(Modifier.height(10.dp))
+                Text("Группы роликов", fontWeight = FontWeight.Bold, fontSize = 17.sp, color = R.T1)
+                Text("Добавьте группы по размерам", fontSize = 12.sp, color = R.T3)
+                groups.forEachIndexed { i, g ->
+                    Card(colors = CardDefaults.cardColors(containerColor = R.S2), modifier = Modifier.fillMaxWidth().padding(vertical = 3.dp)) {
+                        Row(Modifier.padding(6.dp), verticalAlignment = Alignment.CenterVertically) {
+                            OutlinedTextField(g.size, { groups = groups.toMutableList().apply { this[i] = RollerGroup(it, g.from, g.to) } }, label = { Text("Разм") }, singleLine = true, modifier = Modifier.weight(0.8f), colors = tfc())
+                            Spacer(Modifier.width(4.dp))
+                            OutlinedTextField(g.from.toString(), { val n = it.toIntOrNull() ?: g.from; groups = groups.toMutableList().apply { this[i] = RollerGroup(g.size, n, g.to) } }, label = { Text("От") }, singleLine = true, modifier = Modifier.weight(0.6f), keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Number), colors = tfc())
+                            Spacer(Modifier.width(4.dp))
+                            OutlinedTextField(g.to.toString(), { val n = it.toIntOrNull() ?: g.to; groups = groups.toMutableList().apply { this[i] = RollerGroup(g.size, g.from, n) } }, label = { Text("До") }, singleLine = true, modifier = Modifier.weight(0.6f), keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Number), colors = tfc())
+                            IconButton(onClick = { groups = groups.toMutableList().apply { removeAt(i) } }) { Icon(Icons.Default.Delete, null, tint = R.RD, modifier = Modifier.size(18.dp)) }
                         }
                     }
                 }
-            }
-            OutlinedButton(onClick = { groups = groups + RollerGroup("", groups.size + 1, groups.size + 10) },
-                modifier = Modifier.fillMaxWidth()) {
-                Icon(Icons.Default.Add, null)
-                Spacer(Modifier.width(4.dp))
-                Text("Добавить группу")
-            }
+                OutlinedButton(onClick = { groups = groups + RollerGroup("", groups.size + 1, groups.size + 10) }, modifier = Modifier.fillMaxWidth(), colors = ButtonDefaults.outlinedButtonColors(contentColor = R.PR)) { Icon(Icons.Default.Add, null, modifier = Modifier.size(16.dp)); Spacer(Modifier.width(4.dp)); Text("Добавить") }
 
-            Spacer(Modifier.height(16.dp))
-            HorizontalDivider()
-            Spacer(Modifier.height(12.dp))
-
-            Text("Объявления перед закрытием", fontWeight = FontWeight.Bold, fontSize = 18.sp)
-            Text("За сколько минут до закрытия объявлять. Голос записывается в «Озвучка».",
-                fontSize = 12.sp, color = MaterialTheme.colorScheme.onSurfaceVariant)
-            Spacer(Modifier.height(8.dp))
-
-            announcementMins.forEachIndexed { i, m ->
-                Row(verticalAlignment = Alignment.CenterVertically, modifier = Modifier.fillMaxWidth().padding(vertical = 2.dp)) {
-                    OutlinedTextField(m.toString(), {
-                        val n = it.toIntOrNull() ?: m
-                        announcementMins = announcementMins.toMutableList().apply { this[i] = n }
-                    }, label = { Text("Минут до закрытия") }, singleLine = true,
-                        keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Number),
-                        modifier = Modifier.weight(1f))
-                    IconButton(onClick = { announcementMins = announcementMins.toMutableList().apply { removeAt(i) } }) {
-                        Icon(Icons.Default.Delete, "Удалить", tint = MaterialTheme.colorScheme.error)
+                Spacer(Modifier.height(14.dp)); HorizontalDivider(color = R.DV); Spacer(Modifier.height(10.dp))
+                Text("Объявления", fontWeight = FontWeight.Bold, fontSize = 17.sp, color = R.T1)
+                annMins.forEachIndexed { i, m ->
+                    Row(Modifier.fillMaxWidth().padding(vertical = 2.dp), verticalAlignment = Alignment.CenterVertically) {
+                        OutlinedTextField(m.toString(), { val n = it.toIntOrNull() ?: m; annMins = annMins.toMutableList().apply { this[i] = n } }, label = { Text("Мин до закрытия") }, singleLine = true, modifier = Modifier.weight(1f), keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Number), colors = tfc())
+                        IconButton(onClick = { annMins = annMins.toMutableList().apply { removeAt(i) } }) { Icon(Icons.Default.Delete, null, tint = R.RD, modifier = Modifier.size(18.dp)) }
                     }
                 }
+                OutlinedButton(onClick = { annMins = annMins + 30 }, modifier = Modifier.fillMaxWidth(), colors = ButtonDefaults.outlinedButtonColors(contentColor = R.PR)) { Icon(Icons.Default.Add, null, modifier = Modifier.size(16.dp)); Spacer(Modifier.width(4.dp)); Text("Добавить") }
+
+                Spacer(Modifier.height(20.dp))
+                Button(onClick = {
+                    s.totalRollers = rollers.toIntOrNull()?.coerceIn(1, 200) ?: 50; s.staffCount = staff.toIntOrNull() ?: 2; s.salaryPerStaff = salary.toIntOrNull() ?: 0
+                    s.openTimeStr = openT; s.closeTimeStr = closeT; s.pin = if (pin.length == 4) pin else "7777"; s.adsEnabled = ads
+                    s.saveRollerGroups(groups.filter { it.size.isNotEmpty() }); groups = s.loadRollerGroups()
+                    s.saveAnnouncementMinutes(annMins.filter { it > 0 }.distinct().sortedDescending()); annMins = s.loadAnnouncementMinutes(); saved = true
+                }, modifier = Modifier.fillMaxWidth(), colors = ButtonDefaults.buttonColors(containerColor = R.PR)) { Text("\uD83D\uDCBE Сохранить всё", fontWeight = FontWeight.Bold) }
+                if (saved) Text("\u2705 Сохранено", color = R.GR, modifier = Modifier.padding(top = 6.dp))
             }
-            OutlinedButton(onClick = { announcementMins = announcementMins + 30 },
-                modifier = Modifier.fillMaxWidth()) {
-                Icon(Icons.Default.Add, null)
-                Spacer(Modifier.width(4.dp))
-                Text("Добавить время объявления")
-            }
-
-            Spacer(Modifier.height(16.dp))
-            HorizontalDivider()
-            Spacer(Modifier.height(12.dp))
-
-            Text("Реклама", fontWeight = FontWeight.Bold, fontSize = 18.sp)
-            Row(verticalAlignment = Alignment.CenterVertically, modifier = Modifier.fillMaxWidth()) {
-                Text("Показывать рекламу", modifier = Modifier.weight(1f))
-                Switch(checked = adsEnabled, onCheckedChange = { adsEnabled = it })
-            }
-
-            Spacer(Modifier.height(16.dp))
-            HorizontalDivider()
-            Spacer(Modifier.height(12.dp))
-
-            Row(verticalAlignment = Alignment.CenterVertically) {
-                Text("Разраб: ", fontSize = 12.sp, color = MaterialTheme.colorScheme.onSurfaceVariant)
-                Text("Рахманов Сыймыкбек", fontSize = 12.sp, fontWeight = FontWeight.Medium)
-                Spacer(Modifier.width(4.dp))
-                Text("\uD83D\uDCF8 __rahmanov___", fontSize = 12.sp, color = Color(0xFFE91E63), fontWeight = FontWeight.Bold)
-            }
-
-            Spacer(Modifier.height(20.dp))
-            Button(
-                onClick = {
-                    settings.totalRollers = rollers.toIntOrNull()?.coerceIn(1, 200) ?: 50
-                    settings.staffCount = staff.toIntOrNull() ?: 2
-                    settings.salaryPerStaff = salary.toIntOrNull() ?: 0
-                    settings.openTimeStr = openT
-                    settings.closeTimeStr = closeT
-                    settings.pin = if (pin.length == 4) pin else "7777"
-                    settings.adsEnabled = adsEnabled
-                    settings.saveRollerGroups(groups.filter { it.size.isNotEmpty() })
-                    groups = settings.loadRollerGroups()
-                    settings.saveAnnouncementMinutes(announcementMins.filter { it > 0 }.distinct().sortedDescending())
-                    announcementMins = settings.loadAnnouncementMinutes()
-                    saved = true
-                },
-                modifier = Modifier.fillMaxWidth()
-            ) { Text("\uD83D\uDCBE Сохранить все настройки", fontWeight = FontWeight.Bold) }
-
-            if (saved) Text("Сохранено \u2713", color = MaterialTheme.colorScheme.primary,
-                modifier = Modifier.padding(top = 8.dp))
+            Watermark()
         }
     }
 }
 
-@Composable
-private fun NumField(label: String, value: String, onChange: (String) -> Unit) {
-    OutlinedTextField(
-        value = value,
-        onValueChange = { onChange(it.filter { c -> c.isDigit() }) },
-        label = { Text(label) },
-        keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Number),
-        singleLine = true,
-        modifier = Modifier.fillMaxWidth().padding(vertical = 4.dp)
-    )
-}
+@Composable private fun NF(l: String, v: String, cb: (String) -> Unit) = OutlinedTextField(v, { cb(it.filter { c -> c.isDigit() }) }, label = { Text(l) }, keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Number), singleLine = true, modifier = Modifier.fillMaxWidth().padding(vertical = 3.dp), colors = tfc())
+@Composable private fun tfc() = OutlinedTextFieldDefaults.colors(focusedBorderColor = R.PR, cursorColor = R.PR, unfocusedBorderColor = R.S3, focusedLabelColor = R.PR2, unfocusedLabelColor = R.T3)

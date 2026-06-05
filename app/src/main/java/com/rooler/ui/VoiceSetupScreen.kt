@@ -1,9 +1,5 @@
 package com.rooler.ui
 
-import android.Manifest
-import android.content.pm.PackageManager
-import androidx.activity.compose.rememberLauncherForActivityResult
-import androidx.activity.result.contract.ActivityResultContracts
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
@@ -22,123 +18,51 @@ import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
-import androidx.core.content.ContextCompat
 import com.rooler.data.AdminSettings
 import com.rooler.service.VoiceRecorder
 
-private data class VoiceItem(val key: String, val title: String)
+private data class VI(val key: String, val title: String)
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun VoiceSetupScreen(totalBadges: Int, onBack: () -> Unit) {
-    val context = LocalContext.current
-    val recorder = remember { VoiceRecorder(context) }
-    val admin = remember { AdminSettings(context) }
-    DisposableEffect(Unit) { onDispose { recorder.release() } }
+    val ctx = LocalContext.current
+    val rec = remember { VoiceRecorder(ctx) }
+    val admin = remember { AdminSettings(ctx) }
+    DisposableEffect(Unit) { onDispose { rec.release() } }
+    var recKey by remember { mutableStateOf<String?>(null) }
+    var ver by remember { mutableStateOf(0) }
+    val annMins = remember { admin.loadAnnouncementMinutes() }
+    val items = remember(totalBadges, annMins) { buildList {
+        add(VI("time_ended", "\u23F0 Общая фраза"))
+        add(VI("closing_reminder", "\uD83D\uDD34 Фраза закрытия + __rahmanov___"))
+        for (m in annMins) add(VI("announce_$m", "\uD83D\uDCE2 За $m мин до закрытия"))
+        for (i in 1..totalBadges) add(VI("num_$i", "Бейдж $i"))
+    }}
 
-    var hasMic by remember {
-        mutableStateOf(
-            ContextCompat.checkSelfPermission(context, Manifest.permission.RECORD_AUDIO)
-                == PackageManager.PERMISSION_GRANTED
-        )
-    }
-    val askMic = rememberLauncherForActivityResult(
-        ActivityResultContracts.RequestPermission()
-    ) { hasMic = it }
-
-    var recordingKey by remember { mutableStateOf<String?>(null) }
-    var version by remember { mutableStateOf(0) }
-
-    val announcementMins = remember { admin.loadAnnouncementMinutes() }
-
-    val items = remember(totalBadges, announcementMins) {
-        buildList {
-            add(VoiceItem("time_ended", "\u23F0 Общая фраза: «...убакты\u014Bуз б\u00FCтт\u00FC, кассага кайрылы\u014Bыз»"))
-            add(VoiceItem("closing_reminder", "\uD83D\uDD34 Фраза закрытия: «...закрывается, подписывайтесь __rahmanov___!»"))
-            for (m in announcementMins) {
-                add(VoiceItem("announce_$m", "\uD83D\uDCE2 Объявление за $m мин до закрытия"))
-            }
-            for (i in 1..totalBadges) add(VoiceItem("num_$i", "Номер бейджа $i"))
-        }
-    }
-
-    Scaffold(topBar = {
-        TopAppBar(
-            title = { Text("Озвучка") },
-            navigationIcon = { IconButton(onClick = onBack) { Icon(Icons.Default.ArrowBack, "Назад") } }
-        )
-    }) { pad ->
-        Column(Modifier.padding(pad)) {
-            if (!hasMic) {
-                Surface(color = Color(0xFFFFF3E0), modifier = Modifier.fillMaxWidth()) {
-                    Row(Modifier.padding(12.dp), verticalAlignment = Alignment.CenterVertically) {
-                        Text("Нужен микрофон", Modifier.weight(1f))
-                        Button(onClick = { askMic.launch(Manifest.permission.RECORD_AUDIO) }) { Text("Разрешить") }
-                    }
-                }
-            }
-            LazyColumn(Modifier.padding(horizontal = 8.dp)) {
-                items(items, key = { it.key }) { item ->
-                    key(version) {
-                        VoiceRow(
-                            title = item.title,
-                            recorded = recorder.exists(item.key),
-                            isRecording = recordingKey == item.key,
-                            enabled = hasMic,
-                            onToggleRecord = {
-                                if (recordingKey == item.key) {
-                                    recorder.stop()
-                                    recordingKey = null
-                                    version++
-                                } else {
-                                    recorder.start(item.key)
-                                    recordingKey = item.key
-                                }
-                            },
-                            onPlay = { recorder.playback(item.key) }
-                        )
-                    }
-                }
+    Scaffold(containerColor = R.BG, topBar = { TopAppBar(title = { Text("Озвучка", color = R.T1) }, navigationIcon = { IconButton(onClick = onBack) { Icon(Icons.Default.ArrowBack, null, tint = R.T2) } }, colors = TopAppBarDefaults.topAppBarColors(containerColor = R.S1)) }) { pad ->
+        LazyColumn(Modifier.padding(pad).padding(horizontal = 10.dp)) {
+            items(items, key = { it.key }) { item ->
+                key(ver) { VRow(item.title, rec.exists(item.key), recKey == item.key, { if (recKey == item.key) { rec.stop(); recKey = null; ver++ } else { rec.start(item.key); recKey = item.key } }, { rec.playback(item.key) }) }
             }
         }
     }
 }
 
-@Composable
-private fun VoiceRow(
-    title: String,
-    recorded: Boolean,
-    isRecording: Boolean,
-    enabled: Boolean,
-    onToggleRecord: () -> Unit,
-    onPlay: () -> Unit
-) {
-    Card(Modifier.fillMaxWidth().padding(vertical = 3.dp)) {
-        Row(Modifier.padding(10.dp), verticalAlignment = Alignment.CenterVertically) {
+@Composable private fun VRow(title: String, done: Boolean, rec: Boolean, onRec: () -> Unit, onPlay: () -> Unit) {
+    Card(colors = CardDefaults.cardColors(containerColor = R.S2), modifier = Modifier.fillMaxWidth().padding(vertical = 3.dp)) {
+        Row(Modifier.padding(8.dp), verticalAlignment = Alignment.CenterVertically) {
             Column(Modifier.weight(1f)) {
-                Text(title, fontWeight = FontWeight.Medium, fontSize = 14.sp)
-                if (recorded) {
-                    Row(verticalAlignment = Alignment.CenterVertically) {
-                        Icon(Icons.Default.CheckCircle, null, tint = Color(0xFF2E7D32), modifier = Modifier.size(14.dp))
-                        Spacer(Modifier.width(4.dp))
-                        Text("Записано", fontSize = 11.sp, color = Color(0xFF2E7D32))
-                    }
-                } else {
-                    Text("Нет записи", fontSize = 11.sp, color = Color.Gray)
-                }
+                Text(title, fontWeight = FontWeight.Medium, fontSize = 14.sp, color = R.T1)
+                if (done) Row(verticalAlignment = Alignment.CenterVertically) { Icon(Icons.Default.CheckCircle, null, tint = R.GR, modifier = Modifier.size(14.dp)); Spacer(Modifier.width(3.dp)); Text("Записано", fontSize = 11.sp, color = R.GR) }
+                else Text("Нет записи", fontSize = 11.sp, color = R.T3)
             }
-            if (recorded && !isRecording) {
-                IconButton(onClick = onPlay) { Icon(Icons.Default.PlayArrow, "Прослушать") }
-            }
-            Button(
-                onClick = onToggleRecord,
-                enabled = enabled,
-                colors = if (isRecording)
-                    ButtonDefaults.buttonColors(containerColor = Color(0xFFC62828)) else ButtonDefaults.buttonColors()
-            ) {
-                Icon(if (isRecording) Icons.Default.Stop else Icons.Default.Mic, null, modifier = Modifier.size(18.dp))
-                Spacer(Modifier.width(4.dp))
-                Text(if (isRecording) "Стоп" else if (recorded) "Переписать" else "Записать", fontSize = 13.sp)
+            if (done && !rec) IconButton(onClick = onPlay) { Icon(Icons.Default.PlayArrow, null, tint = R.SC, modifier = Modifier.size(20.dp)) }
+            Button(onClick = onRec, colors = if (rec) ButtonDefaults.buttonColors(containerColor = R.RD) else ButtonDefaults.buttonColors(containerColor = R.PR),
+                contentPadding = PaddingValues(horizontal = 10.dp, vertical = 4.dp)) {
+                Icon(if (rec) Icons.Default.Stop else Icons.Default.Mic, null, modifier = Modifier.size(16.dp))
+                Spacer(Modifier.width(3.dp))
+                Text(if (rec) "Стоп" else if (done) "Перезаписать" else "Записать", fontSize = 12.sp)
             }
         }
     }

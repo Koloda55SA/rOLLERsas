@@ -14,6 +14,7 @@ import androidx.compose.foundation.lazy.grid.GridCells
 import androidx.compose.foundation.lazy.grid.LazyVerticalGrid
 import androidx.compose.foundation.lazy.grid.items
 import androidx.compose.foundation.lazy.items
+import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.text.KeyboardOptions
 import androidx.compose.material.icons.Icons
@@ -23,6 +24,7 @@ import androidx.compose.material3.*
 import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.input.KeyboardType
@@ -33,13 +35,6 @@ import com.rooler.data.RollerRepository
 import com.rooler.data.models.Shift
 import com.rooler.domain.SessionView
 
-private val GREEN = Color(0xFF2E7D32)
-private val YELLOW = Color(0xFFF9A825)
-private val RED = Color(0xFFC62828)
-private val FREE_BG = Color(0xFFECEFF1)
-private val GROUP_HEADER_BG = Color(0xFF37474F)
-private val WATERMARK_COLOR = Color(0xFF90A4AE)
-
 fun fmt(ms: Long): String {
     val abs = kotlin.math.abs(ms) / 1000
     val m = abs / 60
@@ -49,301 +44,179 @@ fun fmt(ms: Long): String {
 }
 
 @Composable
-fun WatermarkBar() {
-    Row(
-        Modifier.fillMaxWidth().background(Color(0xFF263238)).padding(horizontal = 8.dp, vertical = 2.dp),
-        verticalAlignment = Alignment.CenterVertically
-    ) {
-        Text("Разраб: Рахманов Сыймыкбек", color = WATERMARK_COLOR, fontSize = 10.sp)
-        Spacer(Modifier.width(6.dp))
-        Text("\uD83D\uDCF8 __rahmanov___", color = Color(0xFFE91E63), fontSize = 10.sp, fontWeight = FontWeight.Bold)
+fun Watermark() {
+    Row(Modifier.fillMaxWidth().background(R.CH).padding(horizontal = 10.dp, vertical = 3.dp),
+        verticalAlignment = Alignment.CenterVertically) {
+        Text("Рахманов Сыймыкбек", color = R.WM, fontSize = 10.sp)
+        Spacer(Modifier.width(4.dp))
+        Text("\uD83D\uDCF8 __rahmanov___", color = R.IG, fontSize = 10.sp, fontWeight = FontWeight.Bold)
         Spacer(Modifier.weight(1f))
     }
 }
 
 @Composable
-fun KanbanScreen(
-    vm: MainViewModel,
-    totalRollers: Int,
-    groups: List<RollerGroup>,
-    onOpenSettings: () -> Unit
-) {
+fun KanbanScreen(vm: MainViewModel, totalRollers: Int, groups: List<RollerGroup>, onOpenSettings: () -> Unit) {
     val state by vm.kanban.collectAsState()
     val now by vm.currentDateTime.collectAsState()
     val shift by vm.shift.collectAsState()
     var giveOutRoller by remember { mutableStateOf<Int?>(null) }
     var returnSession by remember { mutableStateOf<SessionView?>(null) }
-    var showForceCloseDialog by remember { mutableStateOf(false) }
+    var earlyReturn by remember { mutableStateOf<SessionView?>(null) }
+    var showForceClose by remember { mutableStateOf(false) }
     var showShiftDialog by remember { mutableStateOf(false) }
-    var successMsg by remember { mutableStateOf<String?>(null) }
+    var toast by remember { mutableStateOf<String?>(null) }
 
-    val busyRollers = state.riding.map { it.tx.rollerId } +
-            state.ending.map { it.tx.rollerId } +
-            state.expired.map { it.tx.rollerId }
+    val allActive = state.riding + state.ending + state.expired
+    val busyIds = allActive.map { it.tx.rollerId }.toSet()
+    val sizeOf: (Int) -> String = { r -> groups.firstOrNull { r in it.from..it.to }?.size ?: "" }
+    val shiftOn = shift.openTime > 0 && shift.closeTime <= 0L
 
-    val sizeOfRoller: (Int) -> String = { rollerId ->
-        groups.firstOrNull { rollerId in it.from..it.to }?.size ?: ""
+    fun onSessionClick(sv: SessionView) {
+        if (sv.tx.isActive) {
+            if (sv.remainingMs <= 0) returnSession = sv
+            else earlyReturn = sv
+        }
     }
 
-    val shiftActive = shift.openTime > 0 && shift.closeTime <= 0L
-
-    Column(Modifier.fillMaxSize()) {
-        Row(
-            Modifier.fillMaxWidth().background(Color(0xFF263238)).padding(horizontal = 12.dp, vertical = 6.dp),
-            verticalAlignment = Alignment.CenterVertically
-        ) {
-            Text("\uD83D\uDEF9 Роллердром", color = Color.White, fontSize = 20.sp, fontWeight = FontWeight.Bold)
-            Spacer(Modifier.width(12.dp))
-            Text(now, color = Color(0xFFB0BEC5), fontSize = 14.sp)
+    Column(Modifier.fillMaxSize().background(R.BG)) {
+        Row(Modifier.fillMaxWidth().background(R.S1).padding(horizontal = 14.dp, vertical = 8.dp),
+            verticalAlignment = Alignment.CenterVertically) {
+            Text("\uD83D\uDEF9 Роллердром", color = R.T1, fontSize = 20.sp, fontWeight = FontWeight.Bold)
+            Spacer(Modifier.width(10.dp))
+            Text(now, color = R.T3, fontSize = 13.sp)
             Spacer(Modifier.weight(1f))
-            if (shiftActive && shift.cashierName.isNotEmpty()) {
-                Surface(color = Color(0xFF00695C), shape = RoundedCornerShape(4.dp)) {
-                    Text("\uD83D\uDC64 ${shift.cashierName}", color = Color.White, fontSize = 12.sp,
-                        modifier = Modifier.padding(horizontal = 6.dp, vertical = 2.dp))
+            if (shiftOn && shift.cashierName.isNotEmpty()) {
+                Surface(color = R.PR.copy(alpha = 0.3f), shape = RoundedCornerShape(20.dp)) {
+                    Text("\uD83D\uDC64 ${shift.cashierName}", color = R.PR2, fontSize = 12.sp,
+                        modifier = Modifier.padding(horizontal = 10.dp, vertical = 4.dp), fontWeight = FontWeight.Medium)
                 }
+            }
+            if (!shiftOn) {
                 Spacer(Modifier.width(6.dp))
-            }
-            Text("Своб: ${state.freeRollers.size} | Прокат: ${busyRollers.size}",
-                color = Color.White, fontSize = 13.sp)
-            Spacer(Modifier.width(8.dp))
-            if (shiftActive && busyRollers.isNotEmpty()) {
-                IconButton(onClick = { showForceCloseDialog = true }) {
-                    Icon(Icons.Default.Close, "Закрыть все", tint = Color(0xFFFF8A80))
-                }
-            }
-            if (!shiftActive) {
-                Button(onClick = { showShiftDialog = true },
-                    colors = ButtonDefaults.buttonColors(containerColor = GREEN),
-                    modifier = Modifier.height(32.dp)) {
+                Button(onClick = { showShiftDialog = true }, colors = ButtonDefaults.buttonColors(containerColor = R.GR),
+                    contentPadding = PaddingValues(horizontal = 12.dp, vertical = 4.dp)) {
                     Text("Открыть смену", fontSize = 12.sp, fontWeight = FontWeight.Bold)
                 }
-                Spacer(Modifier.width(4.dp))
             }
-            IconButton(onClick = onOpenSettings) {
-                Icon(Icons.Default.Settings, "Настройки", tint = Color.White, modifier = Modifier.size(28.dp))
+            if (shiftOn && allActive.isNotEmpty()) {
+                Spacer(Modifier.width(6.dp))
+                IconButton(onClick = { showForceClose = true }, modifier = Modifier.size(32.dp)) {
+                    Icon(Icons.Default.Close, null, tint = R.RD, modifier = Modifier.size(18.dp))
+                }
+            }
+            Spacer(Modifier.width(4.dp))
+            IconButton(onClick = onOpenSettings, modifier = Modifier.size(32.dp)) {
+                Icon(Icons.Default.Settings, null, tint = R.T2, modifier = Modifier.size(20.dp))
             }
         }
 
-        if (!shiftActive) {
+        if (!shiftOn) {
             Box(Modifier.weight(1f).fillMaxWidth(), contentAlignment = Alignment.Center) {
                 Column(horizontalAlignment = Alignment.CenterHorizontally) {
-                    Text("\uD83D\uDD12 Смена закрыта", fontSize = 28.sp, fontWeight = FontWeight.Bold, color = Color.Gray)
-                    Spacer(Modifier.height(12.dp))
-                    Button(onClick = { showShiftDialog = true },
-                        colors = ButtonDefaults.buttonColors(containerColor = GREEN)) {
-                        Text("\uD83D\uDD13 Открыть смену", fontSize = 18.sp, fontWeight = FontWeight.Bold)
+                    Text("\uD83D\uDD12 Смена закрыта", fontSize = 26.sp, fontWeight = FontWeight.Bold, color = R.T2)
+                    Spacer(Modifier.height(10.dp))
+                    Button(onClick = { showShiftDialog = true }, colors = ButtonDefaults.buttonColors(containerColor = R.GR)) {
+                        Text("Открыть смену", fontSize = 16.sp, fontWeight = FontWeight.Bold)
                     }
-                    Spacer(Modifier.height(16.dp))
-                    OutlinedButton(onClick = onOpenSettings) {
-                        Icon(Icons.Default.Settings, null)
-                        Spacer(Modifier.width(8.dp))
-                        Text("Настройки", fontSize = 16.sp)
+                    Spacer(Modifier.height(12.dp))
+                    OutlinedButton(onClick = onOpenSettings, colors = ButtonDefaults.outlinedButtonColors(contentColor = R.T2)) {
+                        Icon(Icons.Default.Settings, null, modifier = Modifier.size(16.dp))
+                        Spacer(Modifier.width(6.dp))
+                        Text("Настройки", fontSize = 14.sp)
                     }
                 }
             }
         } else {
             Row(Modifier.weight(1f).fillMaxWidth().padding(4.dp)) {
-                GroupsColumn(
-                    groups = groups,
-                    freeRollers = state.freeRollers,
-                    busyRollers = busyRollers,
-                    modifier = Modifier.weight(1.2f),
-                    onRollerClick = { giveOutRoller = it }
-                )
+                FreePanel(groups, state.freeRollers, busyIds, Modifier.weight(1.2f)) { giveOutRoller = it }
                 Spacer(Modifier.width(4.dp))
-                SessionColumn("\uD83D\uDFE2 Катаются", state.riding, GREEN, Modifier.weight(1f), null, sizeOfRoller)
+                ActColumn("\uD83D\uDFE2 Катаются", state.riding, R.GR, R.GR_BG, Modifier.weight(1f), ::onSessionClick, sizeOf)
                 Spacer(Modifier.width(4.dp))
-                SessionColumn("\uD83D\uDFE1 Заканчивается", state.ending, YELLOW, Modifier.weight(1f), null, sizeOfRoller)
+                ActColumn("\uD83D\uDFE1 Скоро", state.ending, R.YL, R.YL_BG, Modifier.weight(1f), ::onSessionClick, sizeOf)
                 Spacer(Modifier.width(4.dp))
-                SessionColumn("\uD83D\uDD34 ИСТЕКЛО", state.expired, RED, Modifier.weight(1f), { returnSession = it }, sizeOfRoller)
+                ActColumn("\uD83D\uDD34 Истекло", state.expired, R.RD, R.RD_BG, Modifier.weight(1f), ::onSessionClick, sizeOf)
             }
         }
-
-        WatermarkBar()
+        Watermark()
     }
 
-    giveOutRoller?.let { roller ->
-        GiveOutDialog(
-            rollerId = roller,
-            rollerSize = sizeOfRoller(roller),
-            onDismiss = { giveOutRoller = null },
-            onStart = { badge, mins ->
-                vm.startSession(roller, badge, mins, sizeOfRoller(roller))
-                giveOutRoller = null
-                successMsg = "Ролик #$roller выдан! Бейдж $badge, ${mins} мин"
-            }
-        )
+    giveOutRoller?.let { r ->
+        GiveOutDialog(r, sizeOf(r), { giveOutRoller = null }, { b, m ->
+            vm.startSession(r, b, m, sizeOf(r)); giveOutRoller = null; toast = "Ролик #$r выдан"
+        })
     }
-
     returnSession?.let { sv ->
-        ReturnDialog(
-            session = sv,
-            onDismiss = { returnSession = null },
-            onConfirm = { forgiven ->
-                vm.returnSession(sv.tx, sv.extraAmount, forgiven)
-                returnSession = null
-                successMsg = "Ролик #${sv.tx.rollerId} возвращён!"
-            }
-        )
+        ReturnDialog(sv, { returnSession = null }, { f ->
+            vm.returnSession(sv.tx, sv.extraAmount, f); returnSession = null; toast = "Ролик #${sv.tx.rollerId} возвращён"
+        })
     }
-
-    if (showForceCloseDialog) {
-        ForceCloseDialog(
-            activeCount = busyRollers.size,
-            onConfirm = {
-                vm.forceCloseAll()
-                showForceCloseDialog = false
-                successMsg = "Все ${busyRollers.size} роликов закрыты!"
-            },
-            onDismiss = { showForceCloseDialog = false }
-        )
+    earlyReturn?.let { sv ->
+        EarlyReturnDialog(sv, { earlyReturn = null }, { f ->
+            val extra = if (f) 0 else PricingLogic.extraAmount(sv.tx.endTime, System.currentTimeMillis())
+            vm.returnSession(sv.tx, extra, f); earlyReturn = null; toast = "Досрочный возврат #${sv.tx.rollerId}"
+        })
     }
+    if (showForceClose) ForceCloseDialog(allActive.size, { vm.forceCloseAll(); showForceClose = false; toast = "Все закрыты" }, { showForceClose = false })
+    if (showShiftDialog && !shiftOn) ShiftDialog({ n -> vm.openShift(RollerRepository.dateKey(), n); showShiftDialog = false; toast = "Смена открыта: $n" }, { showShiftDialog = false })
 
-    if (showShiftDialog && !shiftActive) {
-        ShiftOpenDialog(
-            onOpen = { name ->
-                vm.openShift(RollerRepository.dateKey(), name)
-                showShiftDialog = false
-                successMsg = "Смена открыта! Кассир: $name"
-            },
-            onDismiss = { showShiftDialog = false }
-        )
-    }
-
-    successMsg?.let { msg ->
-        Snackbar(
-            modifier = Modifier.padding(12.dp),
-            containerColor = Color(0xFF1B5E20),
-            contentColor = Color.White
-        ) {
-            Row(verticalAlignment = Alignment.CenterVertically) {
-                Text("\u2705 $msg", fontWeight = FontWeight.Medium)
-            }
-        }
-        LaunchedEffect(msg) {
-            kotlinx.coroutines.delay(2500)
-            successMsg = null
-        }
+    toast?.let { t ->
+        Snackbar(Modifier.padding(10.dp), containerColor = R.GR.copy(alpha = 0.9f), contentColor = Color.White) { Text("\u2705 $t", fontWeight = FontWeight.Medium) }
+        LaunchedEffect(t) { kotlinx.coroutines.delay(2500); toast = null }
     }
 }
 
-@Composable
-private fun ShiftOpenDialog(
-    onOpen: (String) -> Unit,
-    onDismiss: () -> Unit
-) {
+@Composable private fun ShiftDialog(onOpen: (String) -> Unit, onDismiss: () -> Unit) {
     var name by remember { mutableStateOf("") }
-
-    AlertDialog(
-        onDismissRequest = onDismiss,
-        title = { Text("\uD83D\uDD13 Открытие смены", fontWeight = FontWeight.Bold) },
-        text = {
-            Column {
-                Text("Введите ваше имя — оно попадёт в отчёт.", fontSize = 14.sp)
-                Spacer(Modifier.height(8.dp))
-                OutlinedTextField(
-                    value = name,
-                    onValueChange = { name = it },
-                    label = { Text("Имя кассира") },
-                    singleLine = true,
-                    modifier = Modifier.fillMaxWidth()
-                )
-            }
-        },
-        confirmButton = {
-            Button(onClick = { if (name.isNotBlank()) onOpen(name.trim()) },
-                enabled = name.isNotBlank()) {
-                Text("Открыть смену", fontWeight = FontWeight.Bold)
-            }
-        },
-        dismissButton = { TextButton(onClick = onDismiss) { Text("Отмена") } }
+    AlertDialog(onDismissRequest = onDismiss, containerColor = R.S1,
+        title = { Text("\uD83D\uDD13 Открытие смены", fontWeight = FontWeight.Bold, color = R.T1) },
+        text = { Column {
+            Text("Введите имя — оно попадёт в отчёт.", color = R.T2, fontSize = 14.sp)
+            Spacer(Modifier.height(8.dp))
+            OutlinedTextField(name, { name = it }, label = { Text("Имя кассира") }, singleLine = true, modifier = Modifier.fillMaxWidth(),
+                colors = OutlinedTextFieldDefaults.colors(focusedBorderColor = R.PR, unfocusedBorderColor = R.S3, cursorColor = R.PR, focusedLabelColor = R.PR2))
+        }},
+        confirmButton = { Button(onClick = { if (name.isNotBlank()) onOpen(name.trim()) }, enabled = name.isNotBlank(), colors = ButtonDefaults.buttonColors(containerColor = R.GR)) { Text("Открыть", fontWeight = FontWeight.Bold) } },
+        dismissButton = { TextButton(onClick = onDismiss) { Text("Отмена", color = R.T2) } }
     )
 }
 
-@Composable
-private fun ForceCloseDialog(
-    activeCount: Int,
-    onConfirm: () -> Unit,
-    onDismiss: () -> Unit
-) {
-    var input by remember { mutableStateOf("") }
-    val inputInt = input.toIntOrNull()
-    val confirmed = inputInt == activeCount
-
-    AlertDialog(
-        onDismissRequest = onDismiss,
-        title = { Text("\u26A0 Закрыть ВСЕ активные?", fontWeight = FontWeight.Bold, color = RED) },
-        text = {
-            Column {
-                Text("Активных: $activeCount. Все будут закрыты (доплата прощена).", fontSize = 14.sp)
-                Spacer(Modifier.height(12.dp))
-                Text("Введите $activeCount для подтверждения:", fontWeight = FontWeight.Bold, fontSize = 14.sp)
-                Spacer(Modifier.height(8.dp))
-                OutlinedTextField(
-                    value = input,
-                    onValueChange = { input = it.filter { c -> c.isDigit() } },
-                    label = { Text("Количество активных") },
-                    keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Number),
-                    singleLine = true,
-                    modifier = Modifier.fillMaxWidth(),
-                    isError = input.isNotEmpty() && !confirmed
-                )
-            }
-        },
-        confirmButton = {
-            Button(onClick = onConfirm, enabled = confirmed,
-                colors = ButtonDefaults.buttonColors(containerColor = RED)) {
-                Text("Закрыть все $activeCount", fontWeight = FontWeight.Bold)
-            }
-        },
-        dismissButton = { TextButton(onClick = onDismiss) { Text("Отмена") } }
+@Composable private fun ForceCloseDialog(cnt: Int, onOk: () -> Unit, onNo: () -> Unit) {
+    var inp by remember { mutableStateOf("") }
+    AlertDialog(onDismissRequest = onNo, containerColor = R.S1,
+        title = { Text("\u26A0 Закрыть ВСЕ?", fontWeight = FontWeight.Bold, color = R.RD) },
+        text = { Column {
+            Text("Активных: $cnt. Доплата прощена.", color = R.T2, fontSize = 14.sp)
+            Spacer(Modifier.height(10.dp))
+            Text("Введите $cnt для подтверждения:", color = R.T1, fontWeight = FontWeight.Bold)
+            Spacer(Modifier.height(6.dp))
+            OutlinedTextField(inp, { inp = it.filter { c -> c.isDigit() } }, label = { Text("Число") },
+                keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Number), singleLine = true, modifier = Modifier.fillMaxWidth(),
+                isError = inp.isNotEmpty() && inp.toIntOrNull() != cnt,
+                colors = OutlinedTextFieldDefaults.colors(focusedBorderColor = R.RD, unfocusedBorderColor = R.S3, cursorColor = R.RD))
+        }},
+        confirmButton = { Button(onClick = onOk, enabled = inp.toIntOrNull() == cnt, colors = ButtonDefaults.buttonColors(containerColor = R.RD)) { Text("Закрыть $cnt", fontWeight = FontWeight.Bold) } },
+        dismissButton = { TextButton(onClick = onNo) { Text("Отмена", color = R.T2) } }
     )
 }
 
-@Composable
-private fun GroupsColumn(
-    groups: List<RollerGroup>,
-    freeRollers: List<Int>,
-    busyRollers: List<Int>,
-    modifier: Modifier,
-    onRollerClick: (Int) -> Unit
-) {
-    Column(modifier.fillMaxHeight().background(FREE_BG, RoundedCornerShape(8.dp)).padding(6.dp)) {
-        Text("\u2B55 Свободны (${freeRollers.size})", fontWeight = FontWeight.Bold, fontSize = 15.sp,
-            modifier = Modifier.padding(bottom = 4.dp))
-
+@Composable private fun FreePanel(groups: List<RollerGroup>, free: List<Int>, busy: Set<Int>, m: Modifier, onClick: (Int) -> Unit) {
+    Column(m.fillMaxHeight().clip(RoundedCornerShape(10.dp)).background(R.S1).padding(8.dp)) {
+        Text("\u2B55 Свободны (${free.size})", fontWeight = FontWeight.Bold, fontSize = 15.sp, color = R.T1, modifier = Modifier.padding(bottom = 6.dp))
         if (groups.isEmpty()) {
-            LazyVerticalGrid(columns = GridCells.Adaptive(56.dp), modifier = Modifier.weight(1f)) {
-                items(freeRollers) { roller -> RollerChip(roller, true, onRollerClick) }
-            }
+            LazyVerticalGrid(columns = GridCells.Adaptive(52.dp), modifier = Modifier.weight(1f)) { items(free) { RChip(it, true, onClick) } }
         } else {
             LazyColumn(modifier = Modifier.weight(1f)) {
-                items(groups, key = { it.size }) { group ->
-                    val groupFree = group.rollers().filter { it in freeRollers }
-                    val groupTotal = group.rollers().size
-
-                    Card(
-                        modifier = Modifier.fillMaxWidth().padding(vertical = 3.dp),
-                        colors = CardDefaults.cardColors(containerColor = Color.White)
-                    ) {
+                items(groups, key = { it.size }) { g ->
+                    val gf = g.rollers().filter { it in free }
+                    Card(colors = CardDefaults.cardColors(containerColor = R.S2), shape = RoundedCornerShape(8.dp), modifier = Modifier.fillMaxWidth().padding(vertical = 3.dp)) {
                         Column(Modifier.padding(8.dp)) {
                             Row(verticalAlignment = Alignment.CenterVertically) {
-                                Surface(color = GROUP_HEADER_BG, shape = RoundedCornerShape(6.dp)) {
-                                    Text("Рз.${group.size}", color = Color.White,
-                                        fontWeight = FontWeight.Bold, fontSize = 13.sp,
-                                        modifier = Modifier.padding(horizontal = 8.dp, vertical = 3.dp))
-                                }
+                                Surface(color = R.PR, shape = RoundedCornerShape(6.dp)) { Text("Рз.${g.size}", color = Color.White, fontWeight = FontWeight.Bold, fontSize = 12.sp, modifier = Modifier.padding(horizontal = 8.dp, vertical = 3.dp)) }
                                 Spacer(Modifier.width(8.dp))
-                                Text("${groupFree.size}/$groupTotal",
-                                    fontSize = 12.sp, color = if (groupFree.isEmpty()) RED else GREEN,
-                                    fontWeight = FontWeight.Medium)
+                                Text("${gf.size}/${g.rollers().size}", fontSize = 12.sp, color = if (gf.isEmpty()) R.RD else R.GR, fontWeight = FontWeight.Medium)
                             }
                             Spacer(Modifier.height(4.dp))
-                            LazyRow(horizontalArrangement = Arrangement.spacedBy(4.dp)) {
-                                items(group.rollers()) { roller ->
-                                    RollerChip(roller, roller in freeRollers, onRollerClick)
-                                }
-                            }
+                            LazyRow(horizontalArrangement = Arrangement.spacedBy(3.dp)) { items(g.rollers()) { RChip(it, it in free, onClick) } }
                         }
                     }
                 }
@@ -352,81 +225,44 @@ private fun GroupsColumn(
     }
 }
 
-@Composable
-private fun RollerChip(roller: Int, isFree: Boolean, onClick: (Int) -> Unit) {
-    Surface(
-        color = if (isFree) Color(0xFFE8F5E9) else Color(0xFFFFEBEE),
-        shape = RoundedCornerShape(6.dp),
-        modifier = Modifier.size(48.dp).clickable(enabled = isFree) { onClick(roller) }
-    ) {
-        Box(contentAlignment = Alignment.Center) {
-            Text("$roller", fontSize = 15.sp, fontWeight = FontWeight.Bold,
-                color = if (isFree) Color(0xFF1B5E20) else Color(0xFFB71C1C))
-        }
+@Composable private fun RChip(n: Int, free: Boolean, onClick: (Int) -> Unit) {
+    Box(Modifier.size(44.dp).clip(CircleShape).background(if (free) R.GR.copy(alpha = 0.2f) else R.S3)
+        .clickable(enabled = free) { onClick(n) }, contentAlignment = Alignment.Center) {
+        Text("$n", fontSize = 14.sp, fontWeight = FontWeight.Bold, color = if (free) R.GR else R.T3)
     }
 }
 
-@Composable
-private fun SessionColumn(
-    title: String,
-    sessions: List<SessionView>,
-    color: Color,
-    modifier: Modifier,
-    onReturn: ((SessionView) -> Unit)?,
-    sizeOfRoller: (Int) -> String
-) {
-    Column(modifier.fillMaxHeight().background(color.copy(alpha = 0.12f), RoundedCornerShape(8.dp)).padding(6.dp)) {
-        Text("$title (${sessions.size})", fontWeight = FontWeight.Bold, fontSize = 13.sp, color = color,
-            modifier = Modifier.padding(bottom = 4.dp))
-        LazyColumn {
-            items(sessions, key = { it.tx.id }) { sv ->
-                SessionCard(sv, color, onReturn, sizeOfRoller)
-            }
-        }
+@Composable private fun ActColumn(title: String, sessions: List<SessionView>, accent: Color, bg: Color, m: Modifier, onClick: (SessionView) -> Unit, sizeOf: (Int) -> String) {
+    Column(m.fillMaxHeight().clip(RoundedCornerShape(10.dp)).background(bg).padding(6.dp)) {
+        Text("$title (${sessions.size})", fontWeight = FontWeight.Bold, fontSize = 13.sp, color = accent, modifier = Modifier.padding(bottom = 4.dp))
+        LazyColumn { items(sessions, key = { it.tx.id }) { sv -> SCard(sv, accent, onClick, sizeOf) } }
     }
 }
 
-@Composable
-private fun SessionCard(
-    sv: SessionView, color: Color, onReturn: ((SessionView) -> Unit)?,
-    sizeOfRoller: (Int) -> String
-) {
-    val expired = onReturn != null
-    var blinkAlpha = 1f
+@Composable private fun SCard(sv: SessionView, accent: Color, onClick: (SessionView) -> Unit, sizeOf: (Int) -> String) {
+    val expired = sv.remainingMs <= 0
+    var alpha by remember { mutableFloatStateOf(1f) }
     if (expired) {
-        val transition = rememberInfiniteTransition(label = "blink")
-        blinkAlpha = transition.animateFloat(
-            initialValue = 1f, targetValue = 0.4f,
-            animationSpec = infiniteRepeatable(tween(600), RepeatMode.Reverse), label = "a"
-        ).value
+        val t = rememberInfiniteTransition(label = "b")
+        alpha = t.animateFloat(1f, 0.35f, infiniteRepeatable(tween(500), RepeatMode.Reverse), label = "a").value
     }
-    Surface(
-        color = if (expired) color.copy(alpha = blinkAlpha) else color,
-        shape = RoundedCornerShape(8.dp),
-        modifier = Modifier.fillMaxWidth().padding(vertical = 3.dp)
-    ) {
+    Surface(color = accent.copy(alpha = alpha), shape = RoundedCornerShape(8.dp),
+        modifier = Modifier.fillMaxWidth().padding(vertical = 2.dp).clickable { onClick(sv) }) {
         Column(Modifier.padding(8.dp)) {
             Row(verticalAlignment = Alignment.CenterVertically) {
-                Surface(color = Color.White.copy(alpha = 0.3f), shape = RoundedCornerShape(4.dp)) {
-                    Text("Бейдж ${sv.tx.badgeId}", color = Color.White, fontWeight = FontWeight.Bold, fontSize = 16.sp,
-                        modifier = Modifier.padding(horizontal = 6.dp, vertical = 2.dp))
+                Surface(color = Color.White.copy(alpha = 0.25f), shape = RoundedCornerShape(4.dp)) {
+                    Text("Бейдж ${sv.tx.badgeId}", color = Color.White, fontWeight = FontWeight.Bold, fontSize = 15.sp, modifier = Modifier.padding(horizontal = 6.dp, vertical = 2.dp))
                 }
                 Spacer(Modifier.width(4.dp))
-                Text("#${sv.tx.rollerId}", color = Color.White.copy(alpha = 0.7f), fontSize = 12.sp)
-                if (sv.tx.rollerSize.isNotEmpty()) {
-                    Spacer(Modifier.width(2.dp))
-                    Text("рз.${sv.tx.rollerSize}", color = Color.White.copy(alpha = 0.6f), fontSize = 11.sp)
-                }
+                Text("#${sv.tx.rollerId}", color = Color.White.copy(alpha = 0.6f), fontSize = 11.sp)
+                if (sv.tx.rollerSize.isNotEmpty()) Text(" рз.${sv.tx.rollerSize}", color = Color.White.copy(alpha = 0.5f), fontSize = 10.sp)
             }
-            Text("${sv.tx.durationMins} мин", color = Color.White, fontSize = 11.sp)
+            Text("${sv.tx.durationMins} мин", color = Color.White.copy(alpha = 0.7f), fontSize = 11.sp)
             Text(fmt(sv.remainingMs), color = Color.White, fontSize = 24.sp, fontWeight = FontWeight.Bold)
             if (expired) {
-                Text("Просрочка: ${sv.overdueMins} мин · +${sv.extraAmount} с", color = Color.White, fontSize = 11.sp)
-                Button(
-                    onClick = { onReturn?.invoke(sv) },
-                    colors = ButtonDefaults.buttonColors(containerColor = Color.White, contentColor = RED),
-                    modifier = Modifier.fillMaxWidth().padding(top = 4.dp)
-                ) { Text("Принять возврат", fontWeight = FontWeight.Bold, fontSize = 12.sp) }
+                Text("+${sv.overdueMins} мин · ${sv.extraAmount} с", color = Color.White.copy(alpha = 0.8f), fontSize = 11.sp)
+            } else {
+                Text("Нажмите для досрочного возврата", color = Color.White.copy(alpha = 0.5f), fontSize = 10.sp)
             }
         }
     }

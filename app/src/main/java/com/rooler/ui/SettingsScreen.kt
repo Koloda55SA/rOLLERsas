@@ -28,214 +28,97 @@ import java.util.Locale
 
 @Composable
 fun PinDialog(onDismiss: () -> Unit, onSuccess: () -> Unit) {
-    val context = LocalContext.current
-    val expected = remember { AdminSettings(context).pin }
-    var pin by remember { mutableStateOf("") }
-    var error by remember { mutableStateOf(false) }
-    AlertDialog(
-        onDismissRequest = onDismiss,
-        title = { Text("Введите PIN-код") },
-        text = {
-            Column {
-                OutlinedTextField(
-                    value = pin,
-                    onValueChange = { pin = it.filter { c -> c.isDigit() }.take(4); error = false },
-                    visualTransformation = PasswordVisualTransformation(),
-                    keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.NumberPassword),
-                    isError = error,
-                    singleLine = true
-                )
-                if (error) Text("Неверный PIN", color = MaterialTheme.colorScheme.error)
-            }
-        },
-        confirmButton = {
-            Button(onClick = { if (pin == expected) onSuccess() else error = true }) { Text("Войти") }
-        },
-        dismissButton = { TextButton(onClick = onDismiss) { Text("Отмена") } }
+    val ctx = LocalContext.current
+    val pin = remember { AdminSettings(ctx).pin }
+    var input by remember { mutableStateOf("") }
+    var err by remember { mutableStateOf(false) }
+    AlertDialog(onDismissRequest = onDismiss, containerColor = R.S1,
+        title = { Text("PIN-код", fontWeight = FontWeight.Bold, color = R.T1) },
+        text = { Column {
+            OutlinedTextField(input, { input = it.filter { c -> c.isDigit() }.take(4); err = false }, visualTransformation = PasswordVisualTransformation(),
+                keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.NumberPassword), isError = err, singleLine = true, modifier = Modifier.fillMaxWidth(),
+                colors = OutlinedTextFieldDefaults.colors(focusedBorderColor = R.PR, cursorColor = R.PR, unfocusedBorderColor = R.S3))
+            if (err) Text("Неверный PIN", color = R.RD, fontSize = 13.sp)
+        }},
+        confirmButton = { Button(onClick = { if (input == pin) onSuccess() else err = true }, colors = ButtonDefaults.buttonColors(containerColor = R.PR)) { Text("Войти") } },
+        dismissButton = { TextButton(onClick = onDismiss) { Text("Отмена", color = R.T2) } }
     )
 }
 
-private fun timeFmt(ms: Long): String =
-    if (ms <= 0) "\u2014" else SimpleDateFormat("HH:mm", Locale.US).format(Date(ms))
+private fun tf(ms: Long) = if (ms <= 0) "—" else SimpleDateFormat("HH:mm", Locale.US).format(Date(ms))
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
-fun SettingsScreen(
-    vm: MainViewModel,
-    onOpenVoiceSetup: () -> Unit,
-    onOpenAdmin: () -> Unit,
-    onOpenShiftHistory: () -> Unit,
-    onBack: () -> Unit
-) {
-    val context = LocalContext.current
-    val admin = remember { AdminSettings(context) }
-    val dateKey by vm.selectedDate.collectAsState()
-    val expense by vm.expense.collectAsState()
-    val analytics by vm.analytics.collectAsState()
-    val shift by vm.shift.collectAsState()
-    var successMsg by remember { mutableStateOf<String?>(null) }
+fun SettingsScreen(vm: MainViewModel, onOpenVoiceSetup: () -> Unit, onOpenAdmin: () -> Unit, onOpenShiftHistory: () -> Unit, onBack: () -> Unit) {
+    val ctx = LocalContext.current
+    val admin = remember { AdminSettings(ctx) }
+    val dk by vm.selectedDate.collectAsState()
+    val exp by vm.expense.collectAsState()
+    val an by vm.analytics.collectAsState()
+    val sh by vm.shift.collectAsState()
+    var toast by remember { mutableStateOf<String?>(null) }
 
-    LaunchedEffect(dateKey) { vm.loadAccounting(dateKey); vm.loadShift(dateKey) }
+    LaunchedEffect(dk) { vm.loadAccounting(dk); vm.loadShift(dk) }
+    var salary by remember(exp) { mutableStateOf((if (exp.salary > 0) exp.salary else admin.defaultDailySalary()).toString()) }
+    var other by remember(exp) { mutableStateOf(exp.otherExpenses.toString()) }
+    var comment by remember(exp) { mutableStateOf(exp.comment) }
+    var showDP by remember { mutableStateOf(false) }
+    LaunchedEffect(Unit) { AnnouncementService.start(ctx) }
 
-    var salary by remember(expense) {
-        mutableStateOf((if (expense.salary > 0) expense.salary else admin.defaultDailySalary()).toString())
-    }
-    var other by remember(expense) { mutableStateOf(expense.otherExpenses.toString()) }
-    var comment by remember(expense) { mutableStateOf(expense.comment) }
-    var showDatePicker by remember { mutableStateOf(false) }
-
-    LaunchedEffect(Unit) { AnnouncementService.start(context) }
-
-    Scaffold(topBar = {
-        TopAppBar(
-            title = { Text("Настройки и Бухгалтерия") },
-            navigationIcon = {
-                IconButton(onClick = onBack) { Icon(Icons.Default.ArrowBack, "Назад") }
-            }
-        )
-    }) { pad ->
+    Scaffold(containerColor = R.BG, topBar = { TopAppBar(title = { Text("Бухгалтерия", color = R.T1) }, navigationIcon = { IconButton(onClick = onBack) { Icon(Icons.Default.ArrowBack, null, tint = R.T2) } }, colors = TopAppBarDefaults.topAppBarColors(containerColor = R.S1)) }) { pad ->
         Column(Modifier.padding(pad).fillMaxSize()) {
-        LazyColumn(Modifier.weight(1f).padding(16.dp)) {
-            item {
-                OutlinedButton(onClick = { showDatePicker = true }, modifier = Modifier.fillMaxWidth()) {
-                    Text("\uD83D\uDCC5 Дата: $dateKey")
-                }
-                Spacer(Modifier.height(8.dp))
-                Row(Modifier.fillMaxWidth()) {
-                    OutlinedButton(onClick = onOpenVoiceSetup, modifier = Modifier.weight(1f)) {
-                        Text("\uD83C\uDFA4 Озвучка")
-                    }
-                    Spacer(Modifier.width(8.dp))
-                    OutlinedButton(onClick = onOpenAdmin, modifier = Modifier.weight(1f)) {
-                        Text("\u2699 Админ")
-                    }
-                }
-                Spacer(Modifier.height(8.dp))
-                OutlinedButton(onClick = onOpenShiftHistory, modifier = Modifier.fillMaxWidth()) {
-                    Text("\uD83D\uDCDC История смен")
-                }
-
-                Spacer(Modifier.height(12.dp))
-                Text("Смена", fontWeight = FontWeight.Bold, fontSize = 18.sp)
-                if (shift.cashierName.isNotEmpty()) {
-                    Text("\uD83D\uDC64 Кассир: ${shift.cashierName}", fontSize = 14.sp, fontWeight = FontWeight.Medium)
-                }
-                Text("Открыта: ${timeFmt(shift.openTime)}    Закрыта: ${timeFmt(shift.closeTime)}", fontSize = 14.sp)
-                Row(Modifier.fillMaxWidth().padding(top = 4.dp)) {
-                    if (shift.openTime <= 0 || shift.closeTime > 0) {
-                        Button(onClick = { vm.openShift(dateKey, shift.cashierName); successMsg = "Смена открыта!" },
-                            modifier = Modifier.weight(1f)) { Text("Открыть") }
-                    }
-                    if (shift.openTime > 0 && shift.closeTime <= 0) {
-                        Spacer(Modifier.width(8.dp))
-                        OutlinedButton(onClick = { vm.closeShift(dateKey); successMsg = "Смена закрыта!" },
-                            modifier = Modifier.weight(1f)) { Text("Закрыть") }
-                    }
-                }
-                if (shift.openTime > 0 && shift.closeTime <= 0) {
-                    Spacer(Modifier.height(4.dp))
-                    OutlinedButton(onClick = { vm.forceCloseAll(); successMsg = "Все ролики закрыты!" },
-                        modifier = Modifier.fillMaxWidth(),
-                        colors = ButtonDefaults.outlinedButtonColors(contentColor = Color(0xFFC62828))) {
-                        Text("\u26A0 Закрыть ВСЕ активные ролики", fontWeight = FontWeight.Bold)
-                    }
-                }
-
-                Spacer(Modifier.height(12.dp))
-                Text("Расходы за день", fontWeight = FontWeight.Bold, fontSize = 18.sp)
-                OutlinedTextField(salary, { salary = it.filter { c -> c.isDigit() } },
-                    label = { Text("Зарплата (все сотрудницы)") }, modifier = Modifier.fillMaxWidth(),
-                    keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Number))
-                OutlinedTextField(other, { other = it.filter { c -> c.isDigit() } },
-                    label = { Text("Прочие расходы") }, modifier = Modifier.fillMaxWidth(),
-                    keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Number))
-                OutlinedTextField(comment, { comment = it },
-                    label = { Text("Комментарий") }, modifier = Modifier.fillMaxWidth())
-                Button(
-                    onClick = {
-                        vm.saveExpense(dateKey, salary.toIntOrNull() ?: 0, other.toIntOrNull() ?: 0, comment)
-                        successMsg = "Расходы сохранены!"
-                    },
-                    modifier = Modifier.fillMaxWidth().padding(top = 8.dp)
-                ) { Text("\uD83D\uDCBE Сохранить расходы") }
-
-                Spacer(Modifier.height(16.dp))
-                Text("Аналитика", fontWeight = FontWeight.Bold, fontSize = 18.sp)
-            }
-            analytics?.let { a ->
+            LazyColumn(Modifier.weight(1f).padding(14.dp)) {
                 item {
-                    StatRow("Клиентов за день", "${a.clientsCount}")
-                    StatRow("Суммарные часы", "%.1f ч".format(a.totalHours))
-                    StatRow("Общая выручка", "${a.totalRevenue} с")
-                    StatRow("Прощено доплат", "${a.forgivenExtra} с")
-                    StatRow("Зарплата", "${expense.salary} с")
-                    StatRow("Прочие расходы", "${expense.otherExpenses} с")
-                    HorizontalDivider(Modifier.padding(vertical = 4.dp))
-                    StatRow("Чистая прибыль", "${a.netProfit} с", bold = true)
+                    OutlinedButton(onClick = { showDP = true }, modifier = Modifier.fillMaxWidth(), colors = ButtonDefaults.outlinedButtonColors(contentColor = R.T2)) { Text("\uD83D\uDCC5 $dk") }
+                    Spacer(Modifier.height(6.dp))
+                    Row(Modifier.fillMaxWidth()) {
+                        OutlinedButton(onClick = onOpenVoiceSetup, modifier = Modifier.weight(1f), colors = ButtonDefaults.outlinedButtonColors(contentColor = R.SC)) { Text("\uD83C\uDFA4 Озвучка") }
+                        Spacer(Modifier.width(6.dp))
+                        OutlinedButton(onClick = onOpenAdmin, modifier = Modifier.weight(1f), colors = ButtonDefaults.outlinedButtonColors(contentColor = R.PR)) { Text("\u2699 Админ") }
+                    }
+                    Spacer(Modifier.height(6.dp))
+                    OutlinedButton(onClick = onOpenShiftHistory, modifier = Modifier.fillMaxWidth(), colors = ButtonDefaults.outlinedButtonColors(contentColor = R.T2)) { Text("\uD83D\uDCDC История смен") }
 
-                    Button(
-                        onClick = {
-                            val file = ReportPdf.generate(
-                                context, dateKey, shift, a,
-                                salary = expense.salary,
-                                staffCount = admin.staffCount,
-                                otherExpenses = expense.otherExpenses
-                            )
-                            ReportPdf.share(context, file)
-                            successMsg = "PDF отчёт создан!"
-                        },
-                        modifier = Modifier.fillMaxWidth().padding(top = 12.dp)
-                    ) { Text("\uD83D\uDCC4 Экспорт в PDF") }
+                    Spacer(Modifier.height(14.dp))
+                    Text("Смена", fontWeight = FontWeight.Bold, fontSize = 17.sp, color = R.T1)
+                    if (sh.cashierName.isNotEmpty()) Text("\uD83D\uDC64 ${sh.cashierName}", fontSize = 14.sp, color = R.PR2, fontWeight = FontWeight.Medium)
+                    Text("${tf(sh.openTime)} — ${tf(sh.closeTime)}", fontSize = 13.sp, color = R.T2)
+                    Row(Modifier.fillMaxWidth().padding(top = 4.dp)) {
+                        if (sh.openTime <= 0 || sh.closeTime > 0) Button(onClick = { vm.openShift(dk, sh.cashierName); toast = "Смена открыта" }, modifier = Modifier.weight(1f), colors = ButtonDefaults.buttonColors(containerColor = R.GR)) { Text("Открыть") }
+                        if (sh.openTime > 0 && sh.closeTime <= 0) { Spacer(Modifier.width(6.dp)); OutlinedButton(onClick = { vm.closeShift(dk); toast = "Смена закрыта" }, modifier = Modifier.weight(1f), colors = ButtonDefaults.outlinedButtonColors(contentColor = R.YL)) { Text("Закрыть") } }
+                    }
+                    if (sh.openTime > 0 && sh.closeTime <= 0) { Spacer(Modifier.height(4.dp)); OutlinedButton(onClick = { vm.forceCloseAll(); toast = "Все закрыты" }, modifier = Modifier.fillMaxWidth(), colors = ButtonDefaults.outlinedButtonColors(contentColor = R.RD)) { Text("\u26A0 Закрыть ВСЕ активные", fontWeight = FontWeight.Bold) } }
 
-                    Spacer(Modifier.height(12.dp))
-                    Text("Износ роликов", fontWeight = FontWeight.Bold, fontSize = 16.sp)
+                    Spacer(Modifier.height(14.dp))
+                    Text("Расходы", fontWeight = FontWeight.Bold, fontSize = 17.sp, color = R.T1)
+                    OF("Зарплата", salary) { salary = it }
+                    OF("Прочие", other) { other = it }
+                    OutlinedTextField(comment, { comment = it }, label = { Text("Коммент") }, modifier = Modifier.fillMaxWidth(), colors = tfColors())
+                    Button(onClick = { vm.saveExpense(dk, salary.toIntOrNull() ?: 0, other.toIntOrNull() ?: 0, comment); toast = "Сохранено" }, modifier = Modifier.fillMaxWidth().padding(top = 6.dp), colors = ButtonDefaults.buttonColors(containerColor = R.PR)) { Text("\uD83D\uDCBE Сохранить") }
+
+                    Spacer(Modifier.height(14.dp))
+                    Text("Аналитика", fontWeight = FontWeight.Bold, fontSize = 17.sp, color = R.T1)
                 }
-                items(a.rollerUsage) { (rollerId, count) ->
-                    StatRow("Ролик #$rollerId", "$count выдач")
-                }
-            } ?: item { Text("Нет данных за этот день") }
+                an?.let { a ->
+                    item {
+                        SR("Клиентов", "${a.clientsCount}"); SR("Часы", "%.1f ч".format(a.totalHours)); SR("Выручка", "${a.totalRevenue} с"); SR("Прощено", "${a.forgivenExtra} с")
+                        SR("Зарплата", "${exp.salary} с"); SR("Прочие", "${exp.otherExpenses} с")
+                        HorizontalDivider(color = R.DV, modifier = Modifier.padding(vertical = 4.dp))
+                        SR("Чистая прибыль", "${a.netProfit} с", true)
+                        Button(onClick = { ReportPdf.share(ctx, ReportPdf.generate(ctx, dk, sh, a, exp.salary, admin.staffCount, exp.otherExpenses)); toast = "PDF создан" }, modifier = Modifier.fillMaxWidth().padding(top = 8.dp), colors = ButtonDefaults.buttonColors(containerColor = R.SC)) { Text("\uD83D\uDCC4 PDF") }
+                        Spacer(Modifier.height(10.dp)); Text("Износ роликов", fontWeight = FontWeight.Bold, fontSize = 15.sp, color = R.T1)
+                    }
+                    items(a.rollerUsage) { (r, c) -> SR("#$r", "$c выдач") }
+                } ?: item { Text("Нет данных", color = R.T3) }
+            }
+            Watermark()
         }
-
-        WatermarkBar()
-        }
     }
-
-    if (showDatePicker) {
-        val dpState = rememberDatePickerState()
-        DatePickerDialog(
-            onDismissRequest = { showDatePicker = false },
-            confirmButton = {
-                TextButton(onClick = {
-                    dpState.selectedDateMillis?.let { vm.selectDate(millisToDateKey(it)) }
-                    showDatePicker = false
-                }) { Text("OK") }
-            },
-            dismissButton = { TextButton(onClick = { showDatePicker = false }) { Text("Отмена") } }
-        ) { DatePicker(state = dpState) }
-    }
-
-    successMsg?.let { msg ->
-        Snackbar(
-            modifier = Modifier.padding(12.dp),
-            containerColor = Color(0xFF1B5E20),
-            contentColor = Color.White
-        ) { Text("\u2705 $msg", fontWeight = FontWeight.Medium) }
-        LaunchedEffect(msg) { kotlinx.coroutines.delay(2500); successMsg = null }
-    }
+    if (showDP) { val dp = rememberDatePickerState(); DatePickerDialog(onDismissRequest = { showDP = false }, confirmButton = { TextButton(onClick = { dp.selectedDateMillis?.let { vm.selectDate(mdk(it)) }; showDP = false }) { Text("OK") } }, dismissButton = { TextButton(onClick = { showDP = false }) { Text("Отмена") } }) { DatePicker(dp) } }
+    toast?.let { t -> Snackbar(Modifier.padding(10.dp), containerColor = R.GR.copy(alpha = 0.9f), contentColor = Color.White) { Text("\u2705 $t", fontWeight = FontWeight.Medium) }; LaunchedEffect(t) { kotlinx.coroutines.delay(2500); toast = null } }
 }
 
-@Composable
-private fun StatRow(label: String, value: String, bold: Boolean = false) {
-    Row(Modifier.fillMaxWidth().padding(vertical = 2.dp)) {
-        Text(label, fontSize = 14.sp, modifier = Modifier.weight(1f),
-            fontWeight = if (bold) FontWeight.Bold else FontWeight.Normal)
-        Text(value, fontSize = 14.sp, fontWeight = if (bold) FontWeight.Bold else FontWeight.Normal)
-    }
-}
-
-private fun millisToDateKey(millis: Long): String {
-    val cal = Calendar.getInstance().apply { timeInMillis = millis }
-    return "%04d-%02d-%02d".format(
-        cal.get(Calendar.YEAR), cal.get(Calendar.MONTH) + 1, cal.get(Calendar.DAY_OF_MONTH)
-    )
-}
+@Composable private fun SR(l: String, v: String, b: Boolean = false) = Row(Modifier.fillMaxWidth().padding(vertical = 2.dp)) { Text(l, fontSize = 14.sp, color = R.T2, modifier = Modifier.weight(1f), fontWeight = if (b) FontWeight.Bold else FontWeight.Normal); Text(v, fontSize = 14.sp, color = if (b) R.T1 else R.T2, fontWeight = if (b) FontWeight.Bold else FontWeight.Normal) }
+@Composable private fun OF(label: String, v: String, cb: (String) -> Unit) = OutlinedTextField(v, { cb(it.filter { c -> c.isDigit() }) }, label = { Text(label) }, keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Number), singleLine = true, modifier = Modifier.fillMaxWidth().padding(vertical = 2.dp), colors = tfColors())
+@Composable private fun tfColors() = OutlinedTextFieldDefaults.colors(focusedBorderColor = R.PR, cursorColor = R.PR, unfocusedBorderColor = R.S3, focusedLabelColor = R.PR2, unfocusedLabelColor = R.T3)
+private fun mdk(m: Long) = Calendar.getInstance().apply { timeInMillis = m }.run { "%04d-%02d-%02d".format(get(Calendar.YEAR), get(Calendar.MONTH) + 1, get(Calendar.DAY_OF_MONTH)) }

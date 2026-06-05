@@ -1,7 +1,11 @@
 package com.rooler.service
 
 import android.content.Context
+import android.media.AudioAttributes
+import android.media.AudioFocusRequest
+import android.media.AudioManager
 import android.media.MediaPlayer
+import android.os.Build
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.SupervisorJob
@@ -19,22 +23,60 @@ class VoicePlayer(
     private val scope = CoroutineScope(SupervisorJob() + Dispatchers.Main)
     private val queue = Channel<Int>(Channel.UNLIMITED)
     private val announcementQueue = Channel<Int>(Channel.UNLIMITED)
+    private val audioManager = context.getSystemService(Context.AUDIO_SERVICE) as AudioManager
+    private var focusRequest: Any? = null
 
     init {
         scope.launch {
             for (badgeId in queue) {
+                acquireFocus()
                 onDuckStart()
                 playPhrase(badgeId)
-                if (queue.isEmpty && announcementQueue.isEmpty) onDuckEnd()
+                if (queue.isEmpty && announcementQueue.isEmpty) {
+                    onDuckEnd()
+                    releaseFocus()
+                }
             }
         }
         scope.launch {
             for (minutesBefore in announcementQueue) {
+                acquireFocus()
                 onDuckStart()
                 playOne("announce_$minutesBefore")
                 playOne("closing_reminder")
-                if (queue.isEmpty && announcementQueue.isEmpty) onDuckEnd()
+                if (queue.isEmpty && announcementQueue.isEmpty) {
+                    onDuckEnd()
+                    releaseFocus()
+                }
             }
+        }
+    }
+
+    private fun acquireFocus() {
+        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
+            val req = AudioFocusRequest.Builder(AudioManager.AUDIOFOCUS_GAIN_TRANSIENT_MAY_DUCK)
+                .setAudioAttributes(
+                    AudioAttributes.Builder()
+                        .setUsage(AudioAttributes.USAGE_ALARM)
+                        .setContentType(AudioAttributes.CONTENT_TYPE_SPEECH)
+                        .build()
+                )
+                .setOnAudioFocusChangeListener { }
+                .build()
+            focusRequest = req
+            audioManager.requestAudioFocus(req)
+        } else {
+            @Suppress("DEPRECATION")
+            audioManager.requestAudioFocus(null, AudioManager.STREAM_ALARM, AudioManager.AUDIOFOCUS_GAIN_TRANSIENT_MAY_DUCK)
+        }
+    }
+
+    private fun releaseFocus() {
+        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O && focusRequest is AudioFocusRequest) {
+            audioManager.abandonAudioFocusRequest(focusRequest as AudioFocusRequest)
+        } else {
+            @Suppress("DEPRECATION")
+            audioManager.abandonAudioFocus(null)
         }
     }
 
@@ -52,9 +94,9 @@ class VoicePlayer(
         val player = runCatching {
             MediaPlayer().apply {
                 setAudioAttributes(
-                    android.media.AudioAttributes.Builder()
-                        .setUsage(android.media.AudioAttributes.USAGE_ALARM)
-                        .setContentType(android.media.AudioAttributes.CONTENT_TYPE_SPEECH)
+                    AudioAttributes.Builder()
+                        .setUsage(AudioAttributes.USAGE_ALARM)
+                        .setContentType(AudioAttributes.CONTENT_TYPE_SPEECH)
                         .build()
                 )
                 setDataSource(file.absolutePath)

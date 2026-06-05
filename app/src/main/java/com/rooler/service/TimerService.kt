@@ -5,6 +5,7 @@ import android.app.NotificationManager
 import android.app.Service
 import android.content.Context
 import android.content.Intent
+import android.media.AudioManager
 import android.os.Build
 import android.os.IBinder
 import android.os.PowerManager
@@ -19,9 +20,6 @@ import kotlinx.coroutines.delay
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.launch
 
-// Foreground Service: держит таймеры в памяти. Каждую секунду проверяет
-// активные сессии и при переходе через 00:00 ставит бейдж в очередь озвучки
-// и показывает heads-up уведомление (поверх приложений и на экране блокировки).
 class TimerService : Service() {
 
     private val scope = CoroutineScope(SupervisorJob() + Dispatchers.Default)
@@ -29,12 +27,14 @@ class TimerService : Service() {
     private lateinit var voice: VoicePlayer
     private lateinit var music: BackgroundMusic
     private var wakeLock: PowerManager.WakeLock? = null
+    private lateinit var audioManager: AudioManager
 
     private val endTimes = MutableStateFlow<Map<String, Pair<Int, Long>>>(emptyMap())
     private val announced = mutableSetOf<String>()
 
     override fun onCreate() {
         super.onCreate()
+        audioManager = getSystemService(Context.AUDIO_SERVICE) as AudioManager
         music = BackgroundMusic(this)
         voice = VoicePlayer(
             context = this,
@@ -63,15 +63,15 @@ class TimerService : Service() {
                 val (badge, end) = badgeAndEnd
                 if (PricingLogic.remainingMs(end, now) <= 0 && id !in announced) {
                     announced.add(id)
-                    voice.enqueue(badge)
                     showExpiredNotification(badge)
+                    delay(500)
+                    voice.enqueue(badge)
                 }
             }
             delay(1_000)
         }
     }
 
-    // WakeLock на время озвучки, чтобы CPU не уснул при выключенном экране.
     private fun acquireWake() {
         if (wakeLock?.isHeld == true) return
         val pm = getSystemService(Context.POWER_SERVICE) as PowerManager
@@ -89,24 +89,31 @@ class TimerService : Service() {
         if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
             val mgr = getSystemService(Context.NOTIFICATION_SERVICE) as NotificationManager
             mgr.createNotificationChannel(
-                NotificationChannel(CHANNEL, "Таймеры", NotificationManager.IMPORTANCE_LOW)
+                NotificationChannel(CHANNEL, "Таймеры", NotificationManager.IMPORTANCE_MIN).apply {
+                    setShowBadge(false)
+                    description = "Фоновый сервис таймеров"
+                }
             )
             mgr.createNotificationChannel(
-                NotificationChannel(CHANNEL_ALERT, "Истекло время", NotificationManager.IMPORTANCE_HIGH)
-                    .apply { description = "Уведомление о конце сессии" }
+                NotificationChannel(CHANNEL_ALERT, "Истекло время", NotificationManager.IMPORTANCE_HIGH).apply {
+                    description = "Время сессии истекло"
+                    setSound(null, null)
+                    enableVibration(true)
+                    vibrationPattern = longArrayOf(0, 300, 200, 300)
+                    setShowBadge(true)
+                }
             )
         }
     }
 
-    private fun buildOngoingNotification(): android.app.Notification =
-        NotificationCompat.Builder(this, CHANNEL)
-            .setContentTitle("Rollerdrome")
-            .setContentText("Таймеры сессий активны")
-            .setSmallIcon(android.R.drawable.ic_menu_recent_history)
-            .setOngoing(true)
-            .build()
+    private fun buildOngoingNotification() = NotificationCompat.Builder(this, CHANNEL)
+        .setContentTitle("Rollerdrome")
+        .setContentText("Таймеры активны")
+        .setSmallIcon(android.R.drawable.ic_menu_recent_history)
+        .setOngoing(true)
+        .setSilent(true)
+        .build()
 
-    // Уведомление поверх других приложений и на экране блокировки.
     private fun showExpiredNotification(badge: Int) {
         val mgr = getSystemService(Context.NOTIFICATION_SERVICE) as NotificationManager
         val n = NotificationCompat.Builder(this, CHANNEL_ALERT)
@@ -117,6 +124,7 @@ class TimerService : Service() {
             .setCategory(NotificationCompat.CATEGORY_ALARM)
             .setVisibility(NotificationCompat.VISIBILITY_PUBLIC)
             .setAutoCancel(true)
+            .setSilent(true)
             .build()
         mgr.notify(1000 + badge, n)
     }
