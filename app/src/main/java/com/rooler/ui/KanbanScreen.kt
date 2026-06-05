@@ -120,7 +120,7 @@ fun KanbanScreen(
                 Spacer(Modifier.width(4.dp))
             }
             IconButton(onClick = onOpenSettings) {
-                Icon(Icons.Default.Settings, "Настройки", tint = Color.White)
+                Icon(Icons.Default.Settings, "Настройки", tint = Color.White, modifier = Modifier.size(28.dp))
             }
         }
 
@@ -132,6 +132,12 @@ fun KanbanScreen(
                     Button(onClick = { showShiftDialog = true },
                         colors = ButtonDefaults.buttonColors(containerColor = GREEN)) {
                         Text("\uD83D\uDD13 Открыть смену", fontSize = 18.sp, fontWeight = FontWeight.Bold)
+                    }
+                    Spacer(Modifier.height(16.dp))
+                    OutlinedButton(onClick = onOpenSettings) {
+                        Icon(Icons.Default.Settings, null)
+                        Spacer(Modifier.width(8.dp))
+                        Text("Настройки", fontSize = 16.sp)
                     }
                 }
             }
