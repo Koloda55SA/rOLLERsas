@@ -1,5 +1,6 @@
 package com.rooler.data
 
+import com.google.firebase.firestore.FieldValue
 import com.google.firebase.firestore.FirebaseFirestore
 import com.google.firebase.firestore.Query
 import com.rooler.data.models.DailyExpense
@@ -109,7 +110,7 @@ class RollerRepository(
 
     suspend fun openShift(dateKey: String, cashierName: String) {
         db.collection(SHIFTS).document(dateKey)
-            .set(mapOf("dateKey" to dateKey, "cashierName" to cashierName, "openTime" to System.currentTimeMillis()),
+            .set(mapOf("dateKey" to dateKey, "cashierName" to cashierName, "openTime" to System.currentTimeMillis(), "closeTime" to FieldValue.delete(), "comment" to FieldValue.delete()),
                 com.google.firebase.firestore.SetOptions.merge()).await()
     }
 
