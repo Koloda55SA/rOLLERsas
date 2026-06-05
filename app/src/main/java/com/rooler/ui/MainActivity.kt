@@ -11,12 +11,10 @@ import androidx.compose.material3.MaterialTheme
 import androidx.compose.runtime.*
 import androidx.core.content.ContextCompat
 import androidx.lifecycle.viewmodel.compose.viewModel
+import com.rooler.data.AdminSettings
 import com.rooler.service.TimerService
 
-// Количество роликов. По умолчанию 50.
-private const val TOTAL_ROLLERS_DEFAULT = 50
-
-enum class Screen { KANBAN, SETTINGS }
+enum class Screen { KANBAN, SETTINGS, VOICE_SETUP, ADMIN }
 
 class MainActivity : ComponentActivity() {
 
@@ -32,16 +30,27 @@ class MainActivity : ComponentActivity() {
         setContent {
             MaterialTheme {
                 val vm: MainViewModel = viewModel()
+                val admin = remember { AdminSettings(this) }
                 var screen by remember { mutableStateOf(Screen.KANBAN) }
                 var showPin by remember { mutableStateOf(false) }
 
                 when (screen) {
                     Screen.KANBAN -> KanbanScreen(
                         vm = vm,
-                        totalRollers = TOTAL_ROLLERS_DEFAULT,
+                        totalRollers = admin.totalRollers,
                         onOpenSettings = { showPin = true }
                     )
-                    Screen.SETTINGS -> SettingsScreen(vm) { screen = Screen.KANBAN }
+                    Screen.SETTINGS -> SettingsScreen(
+                        vm = vm,
+                        onOpenVoiceSetup = { screen = Screen.VOICE_SETUP },
+                        onOpenAdmin = { screen = Screen.ADMIN },
+                        onBack = { screen = Screen.KANBAN }
+                    )
+                    Screen.VOICE_SETUP -> VoiceSetupScreen(
+                        totalBadges = admin.totalRollers,
+                        onBack = { screen = Screen.SETTINGS }
+                    )
+                    Screen.ADMIN -> AdminScreen(onBack = { screen = Screen.SETTINGS })
                 }
 
                 if (showPin) {
