@@ -49,20 +49,21 @@ class RollerRepository(
     suspend fun startSession(rollerId: Int, badgeId: Int, durationMins: Int) {
         val now = System.currentTimeMillis()
         val base = PricingLogic.baseAmount(durationMins)
-        val tx = Transaction(
-            dateKey = dateKey(),
-            rollerId = rollerId,
-            badgeId = badgeId,
-            durationMins = durationMins,
-            startTime = now,
-            endTime = now + durationMins * 60_000L,
-            baseAmount = base,
-            extraAmount = 0,
-            totalAmount = base,
-            isActive = true,
-            isExtraForgiven = false
+        // Пишем через Map: поле id помечено @DocumentId и его нельзя сериализовать.
+        val data = mapOf(
+            "dateKey" to dateKey(),
+            "rollerId" to rollerId,
+            "badgeId" to badgeId,
+            "durationMins" to durationMins,
+            "startTime" to now,
+            "endTime" to now + durationMins * 60_000L,
+            "baseAmount" to base,
+            "extraAmount" to 0,
+            "totalAmount" to base,
+            "isActive" to true,
+            "isExtraForgiven" to false
         )
-        db.collection(TRANSACTIONS).add(tx).await()
+        db.collection(TRANSACTIONS).add(data).await()
     }
 
     suspend fun returnSession(txId: String, base: Int, extra: Int, forgiven: Boolean) {
