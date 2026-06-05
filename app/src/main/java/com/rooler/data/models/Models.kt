@@ -24,3 +24,11 @@ data class DailyExpense(
     val otherExpenses: Int = 0,
     val comment: String = ""
 )
+
+// Смена за день. ID документа = дата "yyyy-MM-dd". Коллекция `shifts`.
+data class Shift(
+    val dateKey: String = "",
+    val openTime: Long = 0L,    // время открытия смены (epoch ms), 0 = не открыта
+    val closeTime: Long = 0L,   // время закрытия (epoch ms), 0 = не закрыта
+    val comment: String = ""
+)
