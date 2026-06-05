@@ -1,0 +1,29 @@
+{
+  "project_info": {
+    "project_number": "1026822122008",
+    "project_id": "antiscamchat",
+    "storage_bucket": "antiscamchat.firebasestorage.app"
+  },
+  "client": [
+    {
+      "client_info": {
+        "mobilesdk_app_id": "1:1026822122008:android:8b6d68bff9e094f5a7716d",
+        "android_client_info": {
+          "package_name": "com.rooler"
+        }
+      },
+      "oauth_client": [],
+      "api_key": [
+        {
+          "current_key": "AIzaSyC8Jlf0__iqzMGayMWS6jeAeRc2RGfwb78"
+        }
+      ],
+      "services": {
+        "appinvite_service": {
+          "other_platform_oauth_client": []
+        }
+      }
+    }
+  ],
+  "configuration_version": "1"
+}
