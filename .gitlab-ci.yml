@@ -1,0 +1,28 @@
+# Сборка debug APK в GitLab CI.
+image: ghcr.io/cirruslabs/android-sdk:34
+
+variables:
+  GRADLE_USER_HOME: "$CI_PROJECT_DIR/.gradle"
+
+cache:
+  key: "$CI_COMMIT_REF_SLUG"
+  paths:
+    - .gradle/
+    - app/build/
+
+stages:
+  - build
+
+build_debug_apk:
+  stage: build
+  before_script:
+    - chmod +x ./gradlew
+  script:
+    - ./gradlew assembleDebug --stacktrace
+  artifacts:
+    name: "rollerdrome-debug-apk"
+    paths:
+      - app/build/outputs/apk/debug/*.apk
+    expire_in: 1 week
+  rules:
+    - if: '$CI_COMMIT_BRANCH'
