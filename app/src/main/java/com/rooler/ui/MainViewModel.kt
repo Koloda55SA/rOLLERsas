@@ -21,7 +21,7 @@ import kotlinx.coroutines.launch
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.flow.flow
 
-const val TOTAL_ROLLERS = 50
+const val TOTAL_ROLLERS_DEFAULT = 50
 
 // Состояние канбана: 4 колонки.
 data class KanbanState(
@@ -34,6 +34,10 @@ data class KanbanState(
 class MainViewModel(
     private val repo: RollerRepository = RollerRepository()
 ) : ViewModel() {
+
+    // Количество роликов (устанавливается из админ-настроек).
+    private var totalRollers = TOTAL_ROLLERS_DEFAULT
+    fun setTotalRollers(n: Int) { totalRollers = n.coerceAtLeast(1) }
 
     // Тикер каждую секунду для пересчёта оставшегося времени.
     private val ticker = flow {
@@ -51,7 +55,7 @@ class MainViewModel(
     private fun buildState(active: List<Transaction>, now: Long): KanbanState {
         val views = active.map { it.toSessionView(now) }
         val busyRollers = active.map { it.rollerId }.toSet()
-        val free = (1..TOTAL_ROLLERS).filter { it !in busyRollers }
+        val free = (1..totalRollers).filter { it !in busyRollers }
 
         val riding = views.filter { it.column == Column.RIDING }
             .sortedBy { it.remainingMs }
