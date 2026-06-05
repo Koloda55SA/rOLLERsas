@@ -11,20 +11,6 @@ import kotlinx.coroutines.suspendCancellableCoroutine
 import java.io.File
 import kotlin.coroutines.resume
 
-/**
- * Озвучка с ОЧЕРЕДЬЮ.
- *
- * Голос ЦЕЛИКОМ записывается кассиршей через интерфейс приложения и хранится
- * в filesDir/voices/. В коде никаких встроенных файлов озвучки нет.
- *   - num_<badge>.m4a  — запись номера бейджа (1..50)
- *   - time_ended.m4a   — общая фраза «время закончилось, обратитесь на кассу»
- *
- * При истечении времени у нескольких сессий одновременно фразы идут СТРОГО
- * ПО ОЧЕРЕДИ, не накладываясь. Каждая фраза = num_<badge> -> time_ended.
- *
- * Перед началом озвучки вызывается onDuckStart (приглушить музыку),
- * после опустошения очереди — onDuckEnd (вернуть громкость).
- */
 class VoicePlayer(
     private val context: Context,
     private val onDuckStart: () -> Unit = {},
@@ -32,19 +18,28 @@ class VoicePlayer(
 ) {
     private val scope = CoroutineScope(SupervisorJob() + Dispatchers.Main)
     private val queue = Channel<Int>(Channel.UNLIMITED)
+    private val announcementQueue = Channel<Int>(Channel.UNLIMITED)
 
     init {
         scope.launch {
             for (badgeId in queue) {
                 onDuckStart()
                 playPhrase(badgeId)
-                if (queue.isEmpty) onDuckEnd()
+                if (queue.isEmpty && announcementQueue.isEmpty) onDuckEnd()
+            }
+        }
+        scope.launch {
+            for (minutesBefore in announcementQueue) {
+                onDuckStart()
+                playOne("announce_$minutesBefore")
+                playOne("closing_reminder")
+                if (queue.isEmpty && announcementQueue.isEmpty) onDuckEnd()
             }
         }
     }
 
-    /** Добавить бейдж в очередь озвучки. */
     fun enqueue(badgeId: Int) { queue.trySend(badgeId) }
+    fun enqueueAnnouncement(minutesBefore: Int) { announcementQueue.trySend(minutesBefore) }
 
     private suspend fun playPhrase(badgeId: Int) {
         playOne("num_$badgeId")
@@ -56,7 +51,6 @@ class VoicePlayer(
         if (!file.exists()) { cont.resume(Unit); return@suspendCancellableCoroutine }
         val player = runCatching {
             MediaPlayer().apply {
-                // Поток ALARM: звук играет даже в тихом режиме и при заблокированном экране.
                 setAudioAttributes(
                     android.media.AudioAttributes.Builder()
                         .setUsage(android.media.AudioAttributes.USAGE_ALARM)
@@ -81,7 +75,7 @@ class VoicePlayer(
         player.start()
     }
 
-    fun release() { queue.close() }
+    fun release() { queue.close(); announcementQueue.close() }
 
     companion object {
         fun voicesDir(context: Context): File =

@@ -23,10 +23,8 @@ import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.core.content.ContextCompat
+import com.rooler.data.AdminSettings
 import com.rooler.service.VoiceRecorder
-
-// Экран настройки озвучки: общая фраза + номера бейджей 1..N.
-// Каждую запись можно записать, прослушать и перезаписать.
 
 private data class VoiceItem(val key: String, val title: String)
 
@@ -35,6 +33,7 @@ private data class VoiceItem(val key: String, val title: String)
 fun VoiceSetupScreen(totalBadges: Int, onBack: () -> Unit) {
     val context = LocalContext.current
     val recorder = remember { VoiceRecorder(context) }
+    val admin = remember { AdminSettings(context) }
     DisposableEffect(Unit) { onDispose { recorder.release() } }
 
     var hasMic by remember {
@@ -50,16 +49,22 @@ fun VoiceSetupScreen(totalBadges: Int, onBack: () -> Unit) {
     var recordingKey by remember { mutableStateOf<String?>(null) }
     var version by remember { mutableStateOf(0) }
 
-    val items = remember(totalBadges) {
+    val announcementMins = remember { admin.loadAnnouncementMinutes() }
+
+    val items = remember(totalBadges, announcementMins) {
         buildList {
-            add(VoiceItem("time_ended", "Общая фраза: «...убактыңыз бүттү, кассага кайрылыңыз»"))
+            add(VoiceItem("time_ended", "\u23F0 Общая фраза: «...убакты\u014Bуз б\u00FCтт\u00FC, кассага кайрылы\u014Bыз»"))
+            add(VoiceItem("closing_reminder", "\uD83D\uDD34 Фраза закрытия: «...закрывается, подписывайтесь @rahmanov_!»"))
+            for (m in announcementMins) {
+                add(VoiceItem("announce_$m", "\uD83D\uDCE2 Объявление за $m мин до закрытия"))
+            }
             for (i in 1..totalBadges) add(VoiceItem("num_$i", "Номер бейджа $i"))
         }
     }
 
     Scaffold(topBar = {
         TopAppBar(
-            title = { Text("Озвучка (запись голоса)") },
+            title = { Text("Озвучка") },
             navigationIcon = { IconButton(onClick = onBack) { Icon(Icons.Default.ArrowBack, "Назад") } }
         )
     }) { pad ->
@@ -67,17 +72,11 @@ fun VoiceSetupScreen(totalBadges: Int, onBack: () -> Unit) {
             if (!hasMic) {
                 Surface(color = Color(0xFFFFF3E0), modifier = Modifier.fillMaxWidth()) {
                     Row(Modifier.padding(12.dp), verticalAlignment = Alignment.CenterVertically) {
-                        Text("Нужен доступ к микрофону", Modifier.weight(1f))
-                        Button(onClick = { askMic.launch(Manifest.permission.RECORD_AUDIO) }) {
-                            Text("Разрешить")
-                        }
+                        Text("Нужен микрофон", Modifier.weight(1f))
+                        Button(onClick = { askMic.launch(Manifest.permission.RECORD_AUDIO) }) { Text("Разрешить") }
                     }
                 }
             }
-            Text(
-                "Сначала запишите общую фразу, затем номера бейджей.",
-                Modifier.padding(12.dp), fontSize = 13.sp, color = Color.Gray
-            )
             LazyColumn(Modifier.padding(horizontal = 8.dp)) {
                 items(items, key = { it.key }) { item ->
                     key(version) {
@@ -114,19 +113,18 @@ private fun VoiceRow(
     onToggleRecord: () -> Unit,
     onPlay: () -> Unit
 ) {
-    Card(Modifier.fillMaxWidth().padding(vertical = 4.dp)) {
-        Row(Modifier.padding(12.dp), verticalAlignment = Alignment.CenterVertically) {
+    Card(Modifier.fillMaxWidth().padding(vertical = 3.dp)) {
+        Row(Modifier.padding(10.dp), verticalAlignment = Alignment.CenterVertically) {
             Column(Modifier.weight(1f)) {
-                Text(title, fontWeight = FontWeight.Medium)
+                Text(title, fontWeight = FontWeight.Medium, fontSize = 14.sp)
                 if (recorded) {
                     Row(verticalAlignment = Alignment.CenterVertically) {
-                        Icon(Icons.Default.CheckCircle, null, tint = Color(0xFF2E7D32),
-                            modifier = Modifier.size(16.dp))
+                        Icon(Icons.Default.CheckCircle, null, tint = Color(0xFF2E7D32), modifier = Modifier.size(14.dp))
                         Spacer(Modifier.width(4.dp))
-                        Text("Записано", fontSize = 12.sp, color = Color(0xFF2E7D32))
+                        Text("Записано", fontSize = 11.sp, color = Color(0xFF2E7D32))
                     }
                 } else {
-                    Text("Нет записи", fontSize = 12.sp, color = Color.Gray)
+                    Text("Нет записи", fontSize = 11.sp, color = Color.Gray)
                 }
             }
             if (recorded && !isRecording) {
@@ -138,9 +136,9 @@ private fun VoiceRow(
                 colors = if (isRecording)
                     ButtonDefaults.buttonColors(containerColor = Color(0xFFC62828)) else ButtonDefaults.buttonColors()
             ) {
-                Icon(if (isRecording) Icons.Default.Stop else Icons.Default.Mic, null)
+                Icon(if (isRecording) Icons.Default.Stop else Icons.Default.Mic, null, modifier = Modifier.size(18.dp))
                 Spacer(Modifier.width(4.dp))
-                Text(if (isRecording) "Стоп" else if (recorded) "Перезаписать" else "Записать")
+                Text(if (isRecording) "Стоп" else if (recorded) "Переписать" else "Записать", fontSize = 13.sp)
             }
         }
     }

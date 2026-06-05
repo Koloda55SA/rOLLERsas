@@ -16,14 +16,17 @@ import kotlinx.coroutines.flow.SharingStarted
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.flow.combine
+import kotlinx.coroutines.flow.map
 import kotlinx.coroutines.flow.stateIn
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.flow.flow
+import java.text.SimpleDateFormat
+import java.util.Date
+import java.util.Locale
 
 const val TOTAL_ROLLERS_DEFAULT = 50
 
-// Состояние канбана: 4 колонки.
 data class KanbanState(
     val freeRollers: List<Int> = emptyList(),
     val riding: List<SessionView> = emptyList(),
@@ -35,17 +38,19 @@ class MainViewModel(
     private val repo: RollerRepository = RollerRepository()
 ) : ViewModel() {
 
-    // Количество роликов (устанавливается из админ-настроек).
     private var totalRollers = TOTAL_ROLLERS_DEFAULT
     fun setTotalRollers(n: Int) { totalRollers = n.coerceAtLeast(1) }
 
-    // Тикер каждую секунду для пересчёта оставшегося времени.
     private val ticker = flow {
         while (true) {
             emit(System.currentTimeMillis())
             delay(1_000)
         }
     }
+
+    val currentDateTime: StateFlow<String> = ticker
+        .map { now -> SimpleDateFormat("dd.MM.yyyy HH:mm:ss", Locale.getDefault()).format(Date(now)) }
+        .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5_000), "")
 
     val kanban: StateFlow<KanbanState> =
         combine(repo.activeTransactionsFlow(), ticker) { active, now ->
@@ -57,25 +62,20 @@ class MainViewModel(
         val busyRollers = active.map { it.rollerId }.toSet()
         val free = (1..totalRollers).filter { it !in busyRollers }
 
-        val riding = views.filter { it.column == Column.RIDING }
-            .sortedBy { it.remainingMs }
-        val ending = views.filter { it.column == Column.ENDING }
-            .sortedBy { it.remainingMs }
-        // Красная зона: самые большие просрочки наверху.
-        val expired = views.filter { it.column == Column.EXPIRED }
-            .sortedByDescending { it.overdueMins }
+        val riding = views.filter { it.column == Column.RIDING }.sortedBy { it.remainingMs }
+        val ending = views.filter { it.column == Column.ENDING }.sortedBy { it.remainingMs }
+        val expired = views.filter { it.column == Column.EXPIRED }.sortedByDescending { it.overdueMins }
 
         return KanbanState(free, riding, ending, expired)
     }
 
-    // Сообщение об ошибке для UI (например, нет сети).
     private val _error = MutableStateFlow<String?>(null)
     val error: StateFlow<String?> = _error.asStateFlow()
     fun clearError() { _error.value = null }
 
-    fun startSession(rollerId: Int, badgeId: Int, durationMins: Int) = viewModelScope.launch {
+    fun startSession(rollerId: Int, badgeId: Int, durationMins: Int, rollerSize: String = "") = viewModelScope.launch {
         try {
-            repo.startSession(rollerId, badgeId, durationMins)
+            repo.startSession(rollerId, badgeId, durationMins, rollerSize)
         } catch (e: Exception) {
             _error.value = "Не удалось выдать ролик: ${e.message}"
         }
@@ -89,10 +89,8 @@ class MainViewModel(
         }
     }
 
-    // --- Бухгалтерия ---
     private val _selectedDate = MutableStateFlow(RollerRepository.dateKey())
     val selectedDate: StateFlow<String> = _selectedDate.asStateFlow()
-
     fun selectDate(dateKey: String) { _selectedDate.value = dateKey }
 
     private val _expense = MutableStateFlow(DailyExpense())
@@ -117,7 +115,6 @@ class MainViewModel(
             } catch (e: Exception) { _error.value = e.message }
         }
 
-    // --- Смена ---
     private val _shift = MutableStateFlow(Shift())
     val shift: StateFlow<Shift> = _shift.asStateFlow()
 

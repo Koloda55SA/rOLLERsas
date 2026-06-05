@@ -8,7 +8,11 @@ object PricingLogic {
     const val EXTRA_PER_MIN = 10
     private const val ENDING_THRESHOLD_MS = 10_000L
 
-    fun baseAmount(mins: Int): Int = if (mins >= 60) 400 else 200
+    fun baseAmount(mins: Int): Int = when {
+        mins >= 60 -> 400
+        mins >= 30 -> 200
+        else -> 0
+    }
 
     fun remainingMs(endTime: Long, now: Long): Long = endTime - now
 

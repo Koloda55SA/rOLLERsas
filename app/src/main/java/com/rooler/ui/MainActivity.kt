@@ -12,6 +12,8 @@ import androidx.compose.runtime.*
 import androidx.core.content.ContextCompat
 import androidx.lifecycle.viewmodel.compose.viewModel
 import com.rooler.data.AdminSettings
+import com.rooler.data.RollerGroup
+import com.rooler.data.RollerGroups
 import com.rooler.service.TimerService
 
 enum class Screen { KANBAN, SETTINGS, VOICE_SETUP, ADMIN }
@@ -20,7 +22,7 @@ class MainActivity : ComponentActivity() {
 
     private val notifPermission = registerForActivityResult(
         ActivityResultContracts.RequestPermission()
-    ) { /* сервис работает даже при отказе */ }
+    ) { }
 
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
@@ -31,6 +33,8 @@ class MainActivity : ComponentActivity() {
             MaterialTheme {
                 val vm: MainViewModel = viewModel()
                 val admin = remember { AdminSettings(this) }
+                val rollerGroups = remember { RollerGroups(this) }
+                var groups by remember { mutableStateOf(rollerGroups.load()) }
                 var screen by remember { mutableStateOf(Screen.KANBAN) }
                 var showPin by remember { mutableStateOf(false) }
 
@@ -40,6 +44,7 @@ class MainActivity : ComponentActivity() {
                     Screen.KANBAN -> KanbanScreen(
                         vm = vm,
                         totalRollers = admin.totalRollers,
+                        groups = groups,
                         onOpenSettings = { showPin = true }
                     )
                     Screen.SETTINGS -> SettingsScreen(
@@ -52,7 +57,13 @@ class MainActivity : ComponentActivity() {
                         totalBadges = admin.totalRollers,
                         onBack = { screen = Screen.SETTINGS }
                     )
-                    Screen.ADMIN -> AdminScreen(onBack = { screen = Screen.SETTINGS })
+                    Screen.ADMIN -> AdminScreen(
+                        onBack = {
+                            groups = rollerGroups.load()
+                            vm.setTotalRollers(admin.totalRollers)
+                            screen = Screen.SETTINGS
+                        }
+                    )
                 }
 
                 if (showPin) {

@@ -9,6 +9,7 @@ import androidx.compose.material.icons.filled.ArrowBack
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.input.KeyboardType
@@ -17,12 +18,12 @@ import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import com.rooler.data.AdminSettings
 import com.rooler.domain.ReportPdf
+import com.rooler.service.AnnouncementService
 import java.text.SimpleDateFormat
 import java.util.Calendar
 import java.util.Date
 import java.util.Locale
 
-// Диалог PIN перед входом в настройки. PIN берётся из AdminSettings (дефолт 7777).
 @Composable
 fun PinDialog(onDismiss: () -> Unit, onSuccess: () -> Unit) {
     val context = LocalContext.current
@@ -53,7 +54,7 @@ fun PinDialog(onDismiss: () -> Unit, onSuccess: () -> Unit) {
 }
 
 private fun timeFmt(ms: Long): String =
-    if (ms <= 0) "—" else SimpleDateFormat("HH:mm", Locale.US).format(Date(ms))
+    if (ms <= 0) "\u2014" else SimpleDateFormat("HH:mm", Locale.US).format(Date(ms))
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
@@ -72,13 +73,14 @@ fun SettingsScreen(
 
     LaunchedEffect(dateKey) { vm.loadAccounting(dateKey); vm.loadShift(dateKey) }
 
-    // Если расход по зарплате не задан — подставляем значение по умолчанию из админки.
     var salary by remember(expense) {
         mutableStateOf((if (expense.salary > 0) expense.salary else admin.defaultDailySalary()).toString())
     }
     var other by remember(expense) { mutableStateOf(expense.otherExpenses.toString()) }
     var comment by remember(expense) { mutableStateOf(expense.comment) }
     var showDatePicker by remember { mutableStateOf(false) }
+
+    LaunchedEffect(Unit) { AnnouncementService.start(context) }
 
     Scaffold(topBar = {
         TopAppBar(
@@ -91,34 +93,29 @@ fun SettingsScreen(
         LazyColumn(Modifier.padding(pad).padding(16.dp)) {
             item {
                 OutlinedButton(onClick = { showDatePicker = true }, modifier = Modifier.fillMaxWidth()) {
-                    Text("📅 Дата: $dateKey")
+                    Text("\uD83D\uDCC5 Дата: $dateKey")
                 }
                 Spacer(Modifier.height(8.dp))
                 Row(Modifier.fillMaxWidth()) {
                     OutlinedButton(onClick = onOpenVoiceSetup, modifier = Modifier.weight(1f)) {
-                        Text("🎙 Озвучка")
+                        Text("\uD83C\uDFA4 Озвучка")
                     }
                     Spacer(Modifier.width(8.dp))
                     OutlinedButton(onClick = onOpenAdmin, modifier = Modifier.weight(1f)) {
-                        Text("⚙ Админ")
+                        Text("\u2699 Админ")
                     }
                 }
 
-                Spacer(Modifier.height(16.dp))
+                Spacer(Modifier.height(12.dp))
                 Text("Смена", fontWeight = FontWeight.Bold, fontSize = 18.sp)
-                Text("Открыта: ${timeFmt(shift.openTime)}    Закрыта: ${timeFmt(shift.closeTime)}",
-                    fontSize = 14.sp)
+                Text("Открыта: ${timeFmt(shift.openTime)}    Закрыта: ${timeFmt(shift.closeTime)}", fontSize = 14.sp)
                 Row(Modifier.fillMaxWidth().padding(top = 4.dp)) {
-                    Button(onClick = { vm.openShift(dateKey) }, modifier = Modifier.weight(1f)) {
-                        Text("Открыть смену")
-                    }
+                    Button(onClick = { vm.openShift(dateKey) }, modifier = Modifier.weight(1f)) { Text("Открыть") }
                     Spacer(Modifier.width(8.dp))
-                    OutlinedButton(onClick = { vm.closeShift(dateKey) }, modifier = Modifier.weight(1f)) {
-                        Text("Закрыть смену")
-                    }
+                    OutlinedButton(onClick = { vm.closeShift(dateKey) }, modifier = Modifier.weight(1f)) { Text("Закрыть") }
                 }
 
-                Spacer(Modifier.height(16.dp))
+                Spacer(Modifier.height(12.dp))
                 Text("Расходы за день", fontWeight = FontWeight.Bold, fontSize = 18.sp)
                 OutlinedTextField(salary, { salary = it.filter { c -> c.isDigit() } },
                     label = { Text("Зарплата (все сотрудницы)") }, modifier = Modifier.fillMaxWidth(),
@@ -129,25 +126,23 @@ fun SettingsScreen(
                 OutlinedTextField(comment, { comment = it },
                     label = { Text("Комментарий") }, modifier = Modifier.fillMaxWidth())
                 Button(
-                    onClick = {
-                        vm.saveExpense(dateKey, salary.toIntOrNull() ?: 0, other.toIntOrNull() ?: 0, comment)
-                    },
+                    onClick = { vm.saveExpense(dateKey, salary.toIntOrNull() ?: 0, other.toIntOrNull() ?: 0, comment) },
                     modifier = Modifier.fillMaxWidth().padding(top = 8.dp)
-                ) { Text("💾 Сохранить расходы") }
+                ) { Text("\uD83D\uDCBE Сохранить расходы") }
 
-                Spacer(Modifier.height(20.dp))
+                Spacer(Modifier.height(16.dp))
                 Text("Аналитика", fontWeight = FontWeight.Bold, fontSize = 18.sp)
             }
             analytics?.let { a ->
                 item {
                     StatRow("Клиентов за день", "${a.clientsCount}")
-                    StatRow("Суммарные часы проката", "%.1f ч".format(a.totalHours))
-                    StatRow("Общая выручка", "${a.totalRevenue} сом")
-                    StatRow("Прощено доплат", "${a.forgivenExtra} сом")
-                    StatRow("Зарплата", "${expense.salary} сом")
-                    StatRow("Прочие расходы", "${expense.otherExpenses} сом")
+                    StatRow("Суммарные часы", "%.1f ч".format(a.totalHours))
+                    StatRow("Общая выручка", "${a.totalRevenue} с")
+                    StatRow("Прощено доплат", "${a.forgivenExtra} с")
+                    StatRow("Зарплата", "${expense.salary} с")
+                    StatRow("Прочие расходы", "${expense.otherExpenses} с")
                     HorizontalDivider(Modifier.padding(vertical = 4.dp))
-                    StatRow("Чистая прибыль", "${a.netProfit} сом", bold = true)
+                    StatRow("Чистая прибыль", "${a.netProfit} с", bold = true)
 
                     Button(
                         onClick = {
@@ -160,13 +155,22 @@ fun SettingsScreen(
                             ReportPdf.share(context, file)
                         },
                         modifier = Modifier.fillMaxWidth().padding(top = 12.dp)
-                    ) { Text("📄 Экспорт смены в PDF") }
+                    ) { Text("\uD83D\uDCC4 Экспорт в PDF") }
 
-                    Spacer(Modifier.height(16.dp))
-                    Text("Износ роликов (по частоте)", fontWeight = FontWeight.Bold, fontSize = 16.sp)
+                    Spacer(Modifier.height(12.dp))
+                    Text("Износ роликов", fontWeight = FontWeight.Bold, fontSize = 16.sp)
                 }
                 items(a.rollerUsage) { (rollerId, count) ->
                     StatRow("Ролик #$rollerId", "$count выдач")
+                }
+                item {
+                    Spacer(Modifier.height(16.dp))
+                    Row(verticalAlignment = androidx.compose.ui.Alignment.CenterVertically) {
+                        Text("Разраб: ", fontSize = 11.sp, color = MaterialTheme.colorScheme.onSurfaceVariant)
+                        Text("Рахманов Сыймыкбек", fontSize = 11.sp, fontWeight = FontWeight.Medium)
+                        Spacer(Modifier.width(4.dp))
+                        Text("\uD83D\uDCF8 @rahmanov_", fontSize = 11.sp, color = Color(0xFFE91E63), fontWeight = FontWeight.Bold)
+                    }
                 }
             } ?: item { Text("Нет данных за этот день") }
         }
@@ -189,10 +193,10 @@ fun SettingsScreen(
 
 @Composable
 private fun StatRow(label: String, value: String, bold: Boolean = false) {
-    Row(Modifier.fillMaxWidth().padding(vertical = 3.dp)) {
-        Text(label, fontSize = 15.sp, modifier = Modifier.weight(1f),
+    Row(Modifier.fillMaxWidth().padding(vertical = 2.dp)) {
+        Text(label, fontSize = 14.sp, modifier = Modifier.weight(1f),
             fontWeight = if (bold) FontWeight.Bold else FontWeight.Normal)
-        Text(value, fontSize = 15.sp, fontWeight = if (bold) FontWeight.Bold else FontWeight.Normal)
+        Text(value, fontSize = 14.sp, fontWeight = if (bold) FontWeight.Bold else FontWeight.Normal)
     }
 }
 

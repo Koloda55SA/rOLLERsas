@@ -9,6 +9,7 @@ import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.lazy.LazyColumn
+import androidx.compose.foundation.lazy.LazyRow
 import androidx.compose.foundation.lazy.grid.GridCells
 import androidx.compose.foundation.lazy.grid.LazyVerticalGrid
 import androidx.compose.foundation.lazy.grid.items
@@ -20,18 +21,22 @@ import androidx.compose.material3.*
 import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
-import androidx.compose.ui.draw.alpha
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.text.font.FontWeight
-import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
+import com.rooler.data.RollerGroup
 import com.rooler.domain.SessionView
+import java.text.SimpleDateFormat
+import java.util.Date
+import java.util.Locale
 
 private val GREEN = Color(0xFF2E7D32)
 private val YELLOW = Color(0xFFF9A825)
 private val RED = Color(0xFFC62828)
 private val FREE_BG = Color(0xFFECEFF1)
+private val GROUP_HEADER_BG = Color(0xFF37474F)
+private val WATERMARK_COLOR = Color(0xFF90A4AE)
 
 fun fmt(ms: Long): String {
     val abs = kotlin.math.abs(ms) / 1000
@@ -45,45 +50,79 @@ fun fmt(ms: Long): String {
 fun KanbanScreen(
     vm: MainViewModel,
     totalRollers: Int,
+    groups: List<RollerGroup>,
     onOpenSettings: () -> Unit
 ) {
     val state by vm.kanban.collectAsState()
+    val now by vm.currentDateTime.collectAsState()
     var giveOutRoller by remember { mutableStateOf<Int?>(null) }
     var returnSession by remember { mutableStateOf<SessionView?>(null) }
 
+    val busyRollers = state.riding.map { it.tx.rollerId } +
+            state.ending.map { it.tx.rollerId } +
+            state.expired.map { it.tx.rollerId }
+
+    val sizeOfRoller: (Int) -> String = { rollerId ->
+        groups.firstOrNull { rollerId in it.from..it.to }?.size ?: "—"
+    }
+
+    val selectedGroup = giveOutRoller?.let { r ->
+        groups.firstOrNull { r in it.from..it.to }
+    }
+
     Column(Modifier.fillMaxSize()) {
-        // Верхняя панель
         Row(
-            Modifier.fillMaxWidth().background(Color(0xFF263238)).padding(8.dp),
+            Modifier.fillMaxWidth().background(Color(0xFF263238)).padding(horizontal = 12.dp, vertical = 6.dp),
             verticalAlignment = Alignment.CenterVertically
         ) {
-            Text("🛹 Роллердром", color = Color.White, fontSize = 22.sp, fontWeight = FontWeight.Bold)
-            Spacer(Modifier.weight(1f))
-            Text("Свободно: ${state.freeRollers.size}  |  На прокате: ${state.riding.size + state.ending.size + state.expired.size}",
-                color = Color.White, fontSize = 16.sp)
+            Text("\uD83D\uDEF9 Роллердром", color = Color.White, fontSize = 20.sp, fontWeight = FontWeight.Bold)
             Spacer(Modifier.width(12.dp))
+            Text(now, color = Color(0xFFB0BEC5), fontSize = 14.sp)
+            Spacer(Modifier.weight(1f))
+            Text("Свободно: ${state.freeRollers.size} | На прокате: ${busyRollers.size}",
+                color = Color.White, fontSize = 14.sp)
+            Spacer(Modifier.width(8.dp))
             IconButton(onClick = onOpenSettings) {
                 Icon(Icons.Default.Settings, "Настройки", tint = Color.White)
             }
         }
 
-        Row(Modifier.fillMaxSize().padding(6.dp)) {
-            FreeColumn(state.freeRollers, Modifier.weight(1f)) { giveOutRoller = it }
+        Row(Modifier.fillMaxSize().padding(4.dp)) {
+            GroupsColumn(
+                groups = groups,
+                freeRollers = state.freeRollers,
+                busyRollers = busyRollers,
+                sizeOfRoller = sizeOfRoller,
+                modifier = Modifier.weight(1.2f),
+                onRollerClick = { giveOutRoller = it }
+            )
+            Spacer(Modifier.width(4.dp))
+            SessionColumn("\uD83D\uDFE2 Катаются", state.riding, GREEN, Modifier.weight(1f), null, sizeOfRoller)
+            Spacer(Modifier.width(4.dp))
+            SessionColumn("\uD83D\uDFE1 Заканчивается", state.ending, YELLOW, Modifier.weight(1f), null, sizeOfRoller)
+            Spacer(Modifier.width(4.dp))
+            SessionColumn("\uD83D\uDD34 ИСТЕКЛО", state.expired, RED, Modifier.weight(1f), { returnSession = it }, sizeOfRoller)
+        }
+
+        Row(
+            Modifier.fillMaxWidth().background(Color(0xFF263238)).padding(horizontal = 8.dp, vertical = 2.dp),
+            verticalAlignment = Alignment.CenterVertically
+        ) {
+            Text("Разраб: Рахманов Сыймыкбек", color = WATERMARK_COLOR, fontSize = 10.sp)
             Spacer(Modifier.width(6.dp))
-            SessionColumn("🟢 Катаются", state.riding, GREEN, Modifier.weight(1f), null)
-            Spacer(Modifier.width(6.dp))
-            SessionColumn("🟡 Заканчивается", state.ending, YELLOW, Modifier.weight(1f), null)
-            Spacer(Modifier.width(6.dp))
-            SessionColumn("🔴 ИСТЕКЛО", state.expired, RED, Modifier.weight(1f)) { returnSession = it }
+            Text("\uD83D\uDCF8 @rahmanov_", color = Color(0xFFE91E63), fontSize = 10.sp, fontWeight = FontWeight.Bold)
+            Spacer(Modifier.weight(1f))
+            Text("v1.1-test1min", color = WATERMARK_COLOR, fontSize = 9.sp)
         }
     }
 
     giveOutRoller?.let { roller ->
         GiveOutDialog(
             rollerId = roller,
+            rollerSize = sizeOfRoller(roller),
             onDismiss = { giveOutRoller = null },
             onStart = { badge, mins ->
-                vm.startSession(roller, badge, mins)
+                vm.startSession(roller, badge, mins, sizeOfRoller(roller))
                 giveOutRoller = null
             }
         )
@@ -102,23 +141,76 @@ fun KanbanScreen(
 }
 
 @Composable
-private fun FreeColumn(free: List<Int>, modifier: Modifier, onClick: (Int) -> Unit) {
+private fun GroupsColumn(
+    groups: List<RollerGroup>,
+    freeRollers: List<Int>,
+    busyRollers: List<Int>,
+    sizeOfRoller: (Int) -> String,
+    modifier: Modifier,
+    onRollerClick: (Int) -> Unit
+) {
     Column(modifier.fillMaxHeight().background(FREE_BG, RoundedCornerShape(8.dp)).padding(6.dp)) {
-        Text("⭕ Свободны (${free.size})", fontWeight = FontWeight.Bold, fontSize = 16.sp,
-            modifier = Modifier.padding(bottom = 6.dp))
-        LazyVerticalGrid(columns = GridCells.Adaptive(64.dp)) {
-            items(free) { roller ->
-                Surface(
-                    color = Color.White,
-                    shape = RoundedCornerShape(8.dp),
-                    shadowElevation = 2.dp,
-                    modifier = Modifier.padding(4.dp).size(60.dp).clickable { onClick(roller) }
-                ) {
-                    Box(contentAlignment = Alignment.Center) {
-                        Text("$roller", fontSize = 22.sp, fontWeight = FontWeight.Bold)
+        Text("\u2B55 Свободны (${freeRollers.size})", fontWeight = FontWeight.Bold, fontSize = 16.sp,
+            modifier = Modifier.padding(bottom = 4.dp))
+
+        if (groups.isEmpty()) {
+            LazyVerticalGrid(columns = GridCells.Adaptive(56.dp), modifier = Modifier.weight(1f)) {
+                items(freeRollers) { roller ->
+                    RollerChip(roller, true, onRollerClick)
+                }
+            }
+        } else {
+            LazyColumn(modifier = Modifier.weight(1f)) {
+                items(groups, key = { it.size }) { group ->
+                    val groupFree = group.rollers().filter { it in freeRollers }
+                    val groupBusy = group.rollers().filter { it in busyRollers }
+                    val groupTotal = group.rollers().size
+
+                    Card(
+                        modifier = Modifier.fillMaxWidth().padding(vertical = 3.dp),
+                        colors = CardDefaults.cardColors(containerColor = Color.White)
+                    ) {
+                        Column(Modifier.padding(8.dp)) {
+                            Row(verticalAlignment = Alignment.CenterVertically) {
+                                Surface(
+                                    color = GROUP_HEADER_BG,
+                                    shape = RoundedCornerShape(6.dp)
+                                ) {
+                                    Text("Размер ${group.size}", color = Color.White,
+                                        fontWeight = FontWeight.Bold, fontSize = 14.sp,
+                                        modifier = Modifier.padding(horizontal = 10.dp, vertical = 4.dp))
+                                }
+                                Spacer(Modifier.width(8.dp))
+                                Text("${groupFree.size}/$groupTotal свободно",
+                                    fontSize = 13.sp, color = if (groupFree.isEmpty()) RED else GREEN,
+                                    fontWeight = FontWeight.Medium)
+                            }
+                            Spacer(Modifier.height(4.dp))
+                            LazyRow(horizontalArrangement = Arrangement.spacedBy(4.dp)) {
+                                items(group.rollers()) { roller ->
+                                    RollerChip(roller, roller in freeRollers, onRollerClick)
+                                }
+                            }
+                        }
                     }
                 }
             }
+        }
+    }
+}
+
+@Composable
+private fun RollerChip(roller: Int, isFree: Boolean, onClick: (Int) -> Unit) {
+    Surface(
+        color = if (isFree) Color(0xFFE8F5E9) else Color(0xFFFFEBEE),
+        shape = RoundedCornerShape(6.dp),
+        modifier = Modifier.size(52.dp).clickable(enabled = isFree) { onClick(roller) }
+    ) {
+        Box(contentAlignment = Alignment.Center) {
+            Text("$roller",
+                fontSize = 16.sp,
+                fontWeight = FontWeight.Bold,
+                color = if (isFree) Color(0xFF1B5E20) else Color(0xFFB71C1C))
         }
     }
 }
@@ -129,21 +221,25 @@ private fun SessionColumn(
     sessions: List<SessionView>,
     color: Color,
     modifier: Modifier,
-    onReturn: ((SessionView) -> Unit)?
+    onReturn: ((SessionView) -> Unit)?,
+    sizeOfRoller: (Int) -> String
 ) {
     Column(modifier.fillMaxHeight().background(color.copy(alpha = 0.12f), RoundedCornerShape(8.dp)).padding(6.dp)) {
-        Text("$title (${sessions.size})", fontWeight = FontWeight.Bold, fontSize = 16.sp, color = color,
-            modifier = Modifier.padding(bottom = 6.dp))
+        Text("$title (${sessions.size})", fontWeight = FontWeight.Bold, fontSize = 14.sp, color = color,
+            modifier = Modifier.padding(bottom = 4.dp))
         LazyColumn {
             items(sessions, key = { it.tx.id }) { sv ->
-                SessionCard(sv, color, onReturn)
+                SessionCard(sv, color, onReturn, sizeOfRoller)
             }
         }
     }
 }
 
 @Composable
-private fun SessionCard(sv: SessionView, color: Color, onReturn: ((SessionView) -> Unit)?) {
+private fun SessionCard(
+    sv: SessionView, color: Color, onReturn: ((SessionView) -> Unit)?,
+    sizeOfRoller: (Int) -> String
+) {
     val expired = onReturn != null
     var blinkAlpha = 1f
     if (expired) {
@@ -155,21 +251,29 @@ private fun SessionCard(sv: SessionView, color: Color, onReturn: ((SessionView) 
     }
     Surface(
         color = if (expired) color.copy(alpha = blinkAlpha) else color,
-        shape = RoundedCornerShape(10.dp),
-        modifier = Modifier.fillMaxWidth().padding(vertical = 4.dp)
+        shape = RoundedCornerShape(8.dp),
+        modifier = Modifier.fillMaxWidth().padding(vertical = 3.dp)
     ) {
-        Column(Modifier.padding(10.dp)) {
-            Text("Ролик #${sv.tx.rollerId}", color = Color.White, fontWeight = FontWeight.Bold, fontSize = 18.sp)
-            Text("Бейдж ${sv.tx.badgeId} · ${sv.tx.durationMins} мин", color = Color.White, fontSize = 13.sp)
-            Text(fmt(sv.remainingMs), color = Color.White, fontSize = 30.sp, fontWeight = FontWeight.Bold)
+        Column(Modifier.padding(8.dp)) {
+            Row(verticalAlignment = Alignment.CenterVertically) {
+                Text("#${sv.tx.rollerId}", color = Color.White, fontWeight = FontWeight.Bold, fontSize = 16.sp)
+                if (sv.tx.rollerSize.isNotEmpty()) {
+                    Spacer(Modifier.width(4.dp))
+                    Surface(color = Color.White.copy(alpha = 0.3f), shape = RoundedCornerShape(4.dp)) {
+                        Text("рз.${sv.tx.rollerSize}", color = Color.White, fontSize = 11.sp,
+                            modifier = Modifier.padding(horizontal = 4.dp, vertical = 1.dp))
+                    }
+                }
+            }
+            Text("Бейдж ${sv.tx.badgeId} · ${sv.tx.durationMins} мин", color = Color.White, fontSize = 12.sp)
+            Text(fmt(sv.remainingMs), color = Color.White, fontSize = 26.sp, fontWeight = FontWeight.Bold)
             if (expired) {
-                Text("Просрочка: ${sv.overdueMins} мин · доплата ${sv.extraAmount} сом",
-                    color = Color.White, fontSize = 13.sp)
+                Text("Просрочка: ${sv.overdueMins} мин · +${sv.extraAmount} с", color = Color.White, fontSize = 12.sp)
                 Button(
                     onClick = { onReturn?.invoke(sv) },
                     colors = ButtonDefaults.buttonColors(containerColor = Color.White, contentColor = RED),
-                    modifier = Modifier.fillMaxWidth().padding(top = 6.dp)
-                ) { Text("Принять возврат", fontWeight = FontWeight.Bold) }
+                    modifier = Modifier.fillMaxWidth().padding(top = 4.dp)
+                ) { Text("Принять возврат", fontWeight = FontWeight.Bold, fontSize = 13.sp) }
             }
         }
     }

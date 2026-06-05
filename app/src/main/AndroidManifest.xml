@@ -46,7 +46,15 @@
                 android:value="roller rental session timers" />
         </service>
 
-        <!-- Автозапуск сервиса после перезагрузки телефона -->
+        <service
+            android:name=".service.AnnouncementService"
+            android:exported="false"
+            android:foregroundServiceType="specialUse">
+            <property
+                android:name="android.app.PROPERTY_SPECIAL_USE_FGS_SUBTYPE"
+                android:value="closing announcements" />
+        </service>
+
         <receiver
             android:name=".service.BootReceiver"
             android:exported="true"
