@@ -148,7 +148,8 @@ fun KanbanScreen(vm: MainViewModel, totalRollers: Int, groups: List<RollerGroup>
     }
     returnSession?.let { sv ->
         ReturnDialog(sv, { returnSession = null }, { f ->
-            vm.returnSession(sv.tx, sv.extraAmount, f); returnSession = null; toast = "Ролик #${sv.tx.rollerId} возвращён"
+            val extra = if (f) 0 else PricingLogic.extraAmount(sv.tx.endTime, System.currentTimeMillis())
+            vm.returnSession(sv.tx, extra, f); returnSession = null; toast = "Ролик #${sv.tx.rollerId} возвращён"
         })
     }
     earlyReturn?.let { sv ->
@@ -166,7 +167,7 @@ fun KanbanScreen(vm: MainViewModel, totalRollers: Int, groups: List<RollerGroup>
     }
 }
 
-@Composable private fun ShiftDialog(onOpen: (String) -> Unit, onDismiss: () -> Unit) {
+@Composable fun ShiftDialog(onOpen: (String) -> Unit, onDismiss: () -> Unit) {
     var name by remember { mutableStateOf("") }
     AlertDialog(onDismissRequest = onDismiss, containerColor = R.S1,
         title = { Text("\uD83D\uDD13 Открытие смены", fontWeight = FontWeight.Bold, color = R.T1) },
@@ -258,10 +259,11 @@ fun KanbanScreen(vm: MainViewModel, totalRollers: Int, groups: List<RollerGroup>
                 Text("#${sv.tx.rollerId}", color = Color.White.copy(alpha = 0.6f), fontSize = 11.sp)
                 if (sv.tx.rollerSize.isNotEmpty()) Text(" рз.${sv.tx.rollerSize}", color = Color.White.copy(alpha = 0.5f), fontSize = 10.sp)
             }
-            Text("${sv.tx.durationMins} мин", color = Color.White.copy(alpha = 0.7f), fontSize = 11.sp)
+            Text("${sv.tx.durationMins} мин · ${sv.tx.baseAmount} с", color = Color.White.copy(alpha = 0.7f), fontSize = 11.sp)
             Text(fmt(sv.remainingMs), color = Color.White, fontSize = 24.sp, fontWeight = FontWeight.Bold)
             if (expired) {
-                Text("+${sv.overdueMins} мин · ${sv.extraAmount} с", color = Color.White.copy(alpha = 0.8f), fontSize = 11.sp)
+                Text("Доплата: ${sv.extraAmount} с · Итого: ${sv.tx.baseAmount + sv.extraAmount} с", color = Color.White.copy(alpha = 0.9f), fontSize = 12.sp, fontWeight = FontWeight.Medium)
+                Text("Нажмите для возврата", color = Color.White.copy(alpha = 0.6f), fontSize = 10.sp)
             } else {
                 Text("Нажмите для досрочного возврата", color = Color.White.copy(alpha = 0.5f), fontSize = 10.sp)
             }

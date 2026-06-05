@@ -63,6 +63,7 @@ fun SettingsScreen(vm: MainViewModel, onOpenVoiceSetup: () -> Unit, onOpenAdmin:
     var other by remember(exp) { mutableStateOf(exp.otherExpenses.toString()) }
     var comment by remember(exp) { mutableStateOf(exp.comment) }
     var showDP by remember { mutableStateOf(false) }
+    var showOpenShiftDialog by remember { mutableStateOf(false) }
     LaunchedEffect(Unit) { AnnouncementService.start(ctx) }
 
     Scaffold(containerColor = R.BG, topBar = { TopAppBar(title = { Text("Бухгалтерия", color = R.T1) }, navigationIcon = { IconButton(onClick = onBack) { Icon(Icons.Default.ArrowBack, null, tint = R.T2) } }, colors = TopAppBarDefaults.topAppBarColors(containerColor = R.S1)) }) { pad ->
@@ -84,8 +85,8 @@ fun SettingsScreen(vm: MainViewModel, onOpenVoiceSetup: () -> Unit, onOpenAdmin:
                     if (sh.cashierName.isNotEmpty()) Text("\uD83D\uDC64 ${sh.cashierName}", fontSize = 14.sp, color = R.PR2, fontWeight = FontWeight.Medium)
                     Text("${tf(sh.openTime)} — ${tf(sh.closeTime)}", fontSize = 13.sp, color = R.T2)
                     Row(Modifier.fillMaxWidth().padding(top = 4.dp)) {
-                        if (sh.openTime <= 0 || sh.closeTime > 0) Button(onClick = { vm.openShift(dk, sh.cashierName); toast = "Смена открыта" }, modifier = Modifier.weight(1f), colors = ButtonDefaults.buttonColors(containerColor = R.GR)) { Text("Открыть") }
-                        if (sh.openTime > 0 && sh.closeTime <= 0) { Spacer(Modifier.width(6.dp)); OutlinedButton(onClick = { vm.closeShift(dk); toast = "Смена закрыта" }, modifier = Modifier.weight(1f), colors = ButtonDefaults.outlinedButtonColors(contentColor = R.YL)) { Text("Закрыть") } }
+                        if (sh.openTime <= 0 || sh.closeTime > 0) Button(onClick = { if (sh.cashierName.isNotEmpty()) { vm.openShift(dk, sh.cashierName); toast = "Смена открыта" } else showOpenShiftDialog = true }, modifier = Modifier.weight(1f), colors = ButtonDefaults.buttonColors(containerColor = R.GR)) { Text("Открыть") }
+                        if (sh.openTime > 0 && sh.closeTime <= 0) { Spacer(Modifier.width(6.dp)); OutlinedButton(onClick = { vm.closeShift(sh.id); toast = "Смена закрыта" }, modifier = Modifier.weight(1f), colors = ButtonDefaults.outlinedButtonColors(contentColor = R.YL)) { Text("Закрыть") } }
                     }
                     if (sh.openTime > 0 && sh.closeTime <= 0) { Spacer(Modifier.height(4.dp)); OutlinedButton(onClick = { vm.forceCloseAll(); toast = "Все закрыты" }, modifier = Modifier.fillMaxWidth(), colors = ButtonDefaults.outlinedButtonColors(contentColor = R.RD)) { Text("\u26A0 Закрыть ВСЕ активные", fontWeight = FontWeight.Bold) } }
 
@@ -115,6 +116,7 @@ fun SettingsScreen(vm: MainViewModel, onOpenVoiceSetup: () -> Unit, onOpenAdmin:
         }
     }
     if (showDP) { val dp = rememberDatePickerState(); DatePickerDialog(onDismissRequest = { showDP = false }, confirmButton = { TextButton(onClick = { dp.selectedDateMillis?.let { vm.selectDate(mdk(it)) }; showDP = false }) { Text("OK") } }, dismissButton = { TextButton(onClick = { showDP = false }) { Text("Отмена") } }) { DatePicker(dp) } }
+    if (showOpenShiftDialog) ShiftDialog({ n -> vm.openShift(dk, n); showOpenShiftDialog = false; toast = "Смена открыта: $n" }, { showOpenShiftDialog = false })
     toast?.let { t -> Snackbar(Modifier.padding(10.dp), containerColor = R.GR.copy(alpha = 0.9f), contentColor = Color.White) { Text("\u2705 $t", fontWeight = FontWeight.Medium) }; LaunchedEffect(t) { kotlinx.coroutines.delay(2500); toast = null } }
 }
 

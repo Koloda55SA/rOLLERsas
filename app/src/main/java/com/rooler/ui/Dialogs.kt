@@ -14,6 +14,7 @@ import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import com.rooler.domain.PricingLogic
 import com.rooler.domain.SessionView
+import kotlinx.coroutines.delay
 
 @Composable
 fun GiveOutDialog(rollerId: Int, rollerSize: String, onDismiss: () -> Unit, onStart: (badgeId: Int, mins: Int) -> Unit) {
@@ -52,16 +53,20 @@ fun GiveOutDialog(rollerId: Int, rollerSize: String, onDismiss: () -> Unit, onSt
 
 @Composable
 fun ReturnDialog(session: SessionView, onDismiss: () -> Unit, onConfirm: (forgiven: Boolean) -> Unit) {
+    var now by remember { mutableStateOf(System.currentTimeMillis()) }
+    LaunchedEffect(Unit) { while (true) { delay(1_000); now = System.currentTimeMillis() } }
+    val liveExtra = PricingLogic.extraAmount(session.tx.endTime, now)
+    val liveOverdue = PricingLogic.overdueMinutes(session.tx.endTime, now)
     AlertDialog(onDismissRequest = onDismiss, containerColor = R.S1,
         title = { Text("Возврат #${session.tx.rollerId}", fontWeight = FontWeight.Bold, color = R.T1) },
         text = { Column {
             Text("Бейдж: ${session.tx.badgeId}", color = R.T2, fontSize = 14.sp)
             if (session.tx.rollerSize.isNotEmpty()) Text("Размер: ${session.tx.rollerSize}", color = R.T2, fontSize = 14.sp)
-            Text("Просрочка: ${session.overdueMins} мин", color = R.RD, fontSize = 14.sp, fontWeight = FontWeight.Medium)
+            Text("Просрочка: $liveOverdue мин", color = R.RD, fontSize = 14.sp, fontWeight = FontWeight.Medium)
             Spacer(Modifier.height(6.dp))
-            Text("Осн.: ${session.tx.baseAmount} с | Доплата: ${session.extraAmount} с", color = R.T2, fontSize = 14.sp)
+            Text("Осн.: ${session.tx.baseAmount} с | Доплата: $liveExtra с", color = R.T2, fontSize = 14.sp)
             Spacer(Modifier.height(4.dp))
-            Text("Итого: ${session.tx.baseAmount + session.extraAmount} с", color = R.T1, fontSize = 18.sp, fontWeight = FontWeight.Bold)
+            Text("Итого: ${session.tx.baseAmount + liveExtra} с", color = R.T1, fontSize = 18.sp, fontWeight = FontWeight.Bold)
         }},
         confirmButton = { Button(onClick = { onConfirm(false) }, colors = ButtonDefaults.buttonColors(containerColor = R.PR)) { Text("С доплатой", fontWeight = FontWeight.Bold) } },
         dismissButton = { OutlinedButton(onClick = { onConfirm(true) }, colors = ButtonDefaults.outlinedButtonColors(contentColor = R.SC)) { Text("Простить") } }
@@ -70,14 +75,17 @@ fun ReturnDialog(session: SessionView, onDismiss: () -> Unit, onConfirm: (forgiv
 
 @Composable
 fun EarlyReturnDialog(session: SessionView, onDismiss: () -> Unit, onConfirm: (forgiven: Boolean) -> Unit) {
-    val extra = PricingLogic.extraAmount(session.tx.endTime, System.currentTimeMillis())
+    var now by remember { mutableStateOf(System.currentTimeMillis()) }
+    LaunchedEffect(Unit) { while (true) { delay(1_000); now = System.currentTimeMillis() } }
+    val extra = PricingLogic.extraAmount(session.tx.endTime, now)
+    val overdueMins = PricingLogic.overdueMinutes(session.tx.endTime, now)
     AlertDialog(onDismissRequest = onDismiss, containerColor = R.S1,
         title = { Text("Досрочный возврат #${session.tx.rollerId}", fontWeight = FontWeight.Bold, color = R.SC) },
         text = { Column {
             Text("Бейдж: ${session.tx.badgeId} · ${session.tx.durationMins} мин", color = R.T2, fontSize = 14.sp)
             Spacer(Modifier.height(6.dp))
             if (extra > 0) {
-                Text("Уже просрочка: ${session.overdueMins} мин", color = R.YL, fontSize = 14.sp, fontWeight = FontWeight.Medium)
+                Text("Уже просрочка: $overdueMins мин", color = R.YL, fontSize = 14.sp, fontWeight = FontWeight.Medium)
                 Text("Доплата: $extra с", color = R.T2, fontSize = 14.sp)
             } else {
                 Text("Время ещё не истекло — доплаты нет.", color = R.GR, fontSize = 14.sp, fontWeight = FontWeight.Medium)

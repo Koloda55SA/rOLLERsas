@@ -1,6 +1,5 @@
 package com.rooler.data
 
-import com.google.firebase.firestore.FieldValue
 import com.google.firebase.firestore.FirebaseFirestore
 import com.google.firebase.firestore.Query
 import com.rooler.data.models.DailyExpense
@@ -99,25 +98,40 @@ class RollerRepository(
 
     // --- Смены ---
     fun shiftFlow(dateKey: String): Flow<com.rooler.data.models.Shift> = callbackFlow {
-        val reg = db.collection(SHIFTS).document(dateKey)
+        val reg = db.collection(SHIFTS)
+            .whereEqualTo("dateKey", dateKey)
+            .orderBy("openTime", Query.Direction.DESCENDING)
+            .limit(1)
             .addSnapshotListener { snap, err ->
-                if (err != null) { trySend(com.rooler.data.models.Shift(dateKey)); return@addSnapshotListener }
-                trySend(snap?.toObject(com.rooler.data.models.Shift::class.java)
-                    ?: com.rooler.data.models.Shift(dateKey))
+                if (err != null) { trySend(com.rooler.data.models.Shift(dateKey = dateKey)); return@addSnapshotListener }
+                val shift = snap?.documents?.firstOrNull()?.toObject(com.rooler.data.models.Shift::class.java)
+                    ?: com.rooler.data.models.Shift(dateKey = dateKey)
+                trySend(shift)
             }
         awaitClose { reg.remove() }
     }
 
     suspend fun openShift(dateKey: String, cashierName: String) {
-        db.collection(SHIFTS).document(dateKey)
-            .set(mapOf("dateKey" to dateKey, "cashierName" to cashierName, "openTime" to System.currentTimeMillis(), "closeTime" to FieldValue.delete(), "comment" to FieldValue.delete()),
-                com.google.firebase.firestore.SetOptions.merge()).await()
+        val now = System.currentTimeMillis()
+        val openShifts = db.collection(SHIFTS)
+            .whereEqualTo("dateKey", dateKey)
+            .whereEqualTo("closeTime", 0L)
+            .get().await()
+        for (doc in openShifts.documents) {
+            doc.reference.update("closeTime", now).await()
+        }
+        db.collection(SHIFTS).add(mapOf(
+            "dateKey" to dateKey,
+            "cashierName" to cashierName,
+            "openTime" to now,
+            "closeTime" to 0L,
+            "comment" to ""
+        )).await()
     }
 
-    suspend fun closeShift(dateKey: String) {
-        db.collection(SHIFTS).document(dateKey)
-            .set(mapOf("dateKey" to dateKey, "closeTime" to System.currentTimeMillis()),
-                com.google.firebase.firestore.SetOptions.merge()).await()
+    suspend fun closeShift(shiftId: String) {
+        db.collection(SHIFTS).document(shiftId)
+            .update("closeTime", System.currentTimeMillis()).await()
     }
 
     suspend fun loadShiftHistory(limit: Int = 30): List<Pair<String, com.rooler.data.models.Shift>> {

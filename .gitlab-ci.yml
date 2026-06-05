@@ -26,7 +26,8 @@ build_debug_apk:
     - yes | sdkmanager --licenses > /dev/null || true
     - sdkmanager "platform-tools" "platforms;android-34" "build-tools;34.0.0" > /dev/null
   script:
-    - gradle assembleDebug --stacktrace
+    - gradle assembleDebug 2>&1 | tee build.log
+    - grep -i "^e:" build.log || true
   artifacts:
     name: "rollerdrome-debug-apk"
     paths:

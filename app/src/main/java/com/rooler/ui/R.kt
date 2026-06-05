@@ -20,7 +20,7 @@ object R {
     val T2 = Color(0xFF9E9EAE)
     val T3 = Color(0xFF6E6E7E)
     val DV = Color(0xFF2E2E42)
-    val WM = Color(0xFF5E5E6E)
+    val WM = Color(0xFFB0B0C0)
     val IG = Color(0xFFE1306C)
     val CH = Color(0xFF263238)
 }

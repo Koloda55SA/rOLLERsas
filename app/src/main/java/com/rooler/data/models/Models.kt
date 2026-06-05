@@ -25,6 +25,7 @@ data class DailyExpense(
 )
 
 data class Shift(
+    @DocumentId val id: String = "",
     val dateKey: String = "",
     val cashierName: String = "",
     val openTime: Long = 0L,

@@ -133,7 +133,7 @@ class MainViewModel(
     fun openShift(dateKey: String, cashierName: String) = viewModelScope.launch {
         try { repo.openShift(dateKey, cashierName) } catch (e: Exception) { _error.value = e.message }
     }
-    fun closeShift(dateKey: String) = viewModelScope.launch {
-        try { repo.closeShift(dateKey) } catch (e: Exception) { _error.value = e.message }
+    fun closeShift(shiftId: String) = viewModelScope.launch {
+        try { repo.closeShift(shiftId) } catch (e: Exception) { _error.value = e.message }
     }
 }
