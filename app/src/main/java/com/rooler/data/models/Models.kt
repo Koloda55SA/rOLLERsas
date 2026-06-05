@@ -7,6 +7,7 @@ data class Transaction(
     @DocumentId val id: String = "",
     val dateKey: String = "",          // "yyyy-MM-dd"
     val rollerId: Int = 0,             // номер ролика 1..50
+    val rollerSize: String = "",       // размер ролика (например "31")
     val badgeId: Int = 0,
     val durationMins: Int = 30,        // 30 или 60
     val startTime: Long = 0L,
