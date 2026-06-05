@@ -1,5 +1,3 @@
-# Сборка debug APK в GitLab CI.
-# Используем системный Gradle 8.7 из образа, чтобы не хранить бинарный wrapper jar.
 image: gradle:8.7-jdk17
 
 variables:
@@ -14,11 +12,11 @@ cache:
 
 stages:
   - build
+  - deploy
 
 build_debug_apk:
   stage: build
   before_script:
-    # Установка Android SDK command-line tools
     - apt-get update -qq && apt-get install -y -qq wget unzip > /dev/null
     - mkdir -p $ANDROID_SDK_ROOT/cmdline-tools
     - wget -q https://dl.google.com/android/repository/commandlinetools-linux-${ANDROID_CMDLINE_VERSION}_latest.zip -O /tmp/cmdline.zip
@@ -36,3 +34,18 @@ build_debug_apk:
     expire_in: 1 week
   rules:
     - if: '$CI_COMMIT_BRANCH'
+
+deploy_firestore_rules:
+  stage: deploy
+  image: node:20-slim
+  before_script:
+    - npm install -g firebase-tools
+  script:
+    - firebase deploy --only firestore:rules --project antiscamchat --token "$FIREBASE_TOKEN"
+  rules:
+    - if: '$CI_COMMIT_BRANCH == "main"'
+      changes:
+        - firestore.rules
+    - if: '$CI_COMMIT_BRANCH == "master"'
+      changes:
+        - firestore.rules

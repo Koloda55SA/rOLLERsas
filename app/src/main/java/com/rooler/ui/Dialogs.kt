@@ -20,7 +20,7 @@ fun GiveOutDialog(
     onStart: (badgeId: Int, mins: Int) -> Unit
 ) {
     var badge by remember { mutableStateOf("") }
-    var mins by remember { mutableStateOf(30) }
+    var mins by remember { mutableStateOf(1) }
     val badgeInt = badge.toIntOrNull()
 
     AlertDialog(
@@ -39,8 +39,10 @@ fun GiveOutDialog(
                 Spacer(Modifier.height(16.dp))
                 Text("Длительность:", fontSize = 14.sp)
                 Row(Modifier.fillMaxWidth().padding(top = 8.dp)) {
+                    DurationButton("1 мин\nТЕСТ", mins == 1, Modifier.weight(1f)) { mins = 1 }
+                    Spacer(Modifier.width(6.dp))
                     DurationButton("30 мин\n200 сом", mins == 30, Modifier.weight(1f)) { mins = 30 }
-                    Spacer(Modifier.width(8.dp))
+                    Spacer(Modifier.width(6.dp))
                     DurationButton("60 мин\n400 сом", mins == 60, Modifier.weight(1f)) { mins = 60 }
                 }
             }
