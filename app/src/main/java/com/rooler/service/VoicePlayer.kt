@@ -55,7 +55,17 @@ class VoicePlayer(
         val file = voiceFile(context, name)
         if (!file.exists()) { cont.resume(Unit); return@suspendCancellableCoroutine }
         val player = runCatching {
-            MediaPlayer().apply { setDataSource(file.absolutePath); prepare() }
+            MediaPlayer().apply {
+                // Поток ALARM: звук играет даже в тихом режиме и при заблокированном экране.
+                setAudioAttributes(
+                    android.media.AudioAttributes.Builder()
+                        .setUsage(android.media.AudioAttributes.USAGE_ALARM)
+                        .setContentType(android.media.AudioAttributes.CONTENT_TYPE_SPEECH)
+                        .build()
+                )
+                setDataSource(file.absolutePath)
+                prepare()
+            }
         }.getOrNull()
         if (player == null) { cont.resume(Unit); return@suspendCancellableCoroutine }
         player.setOnCompletionListener {
