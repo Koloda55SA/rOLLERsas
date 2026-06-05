@@ -1,14 +1,16 @@
 # Сборка debug APK в GitLab CI.
-image: ghcr.io/cirruslabs/android-sdk:34
+# Используем системный Gradle 8.7 из образа, чтобы не хранить бинарный wrapper jar.
+image: gradle:8.7-jdk17
 
 variables:
   GRADLE_USER_HOME: "$CI_PROJECT_DIR/.gradle"
+  ANDROID_SDK_ROOT: "/opt/android-sdk"
+  ANDROID_CMDLINE_VERSION: "11076708"
 
 cache:
   key: "$CI_COMMIT_REF_SLUG"
   paths:
     - .gradle/
-    - app/build/
 
 stages:
   - build
@@ -16,9 +18,17 @@ stages:
 build_debug_apk:
   stage: build
   before_script:
-    - chmod +x ./gradlew
+    # Установка Android SDK command-line tools
+    - apt-get update -qq && apt-get install -y -qq wget unzip > /dev/null
+    - mkdir -p $ANDROID_SDK_ROOT/cmdline-tools
+    - wget -q https://dl.google.com/android/repository/commandlinetools-linux-${ANDROID_CMDLINE_VERSION}_latest.zip -O /tmp/cmdline.zip
+    - unzip -q /tmp/cmdline.zip -d $ANDROID_SDK_ROOT/cmdline-tools
+    - mv $ANDROID_SDK_ROOT/cmdline-tools/cmdline-tools $ANDROID_SDK_ROOT/cmdline-tools/latest
+    - export PATH=$PATH:$ANDROID_SDK_ROOT/cmdline-tools/latest/bin:$ANDROID_SDK_ROOT/platform-tools
+    - yes | sdkmanager --licenses > /dev/null || true
+    - sdkmanager "platform-tools" "platforms;android-34" "build-tools;34.0.0" > /dev/null
   script:
-    - ./gradlew assembleDebug --stacktrace
+    - gradle assembleDebug --stacktrace
   artifacts:
     name: "rollerdrome-debug-apk"
     paths:
