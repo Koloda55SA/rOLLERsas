@@ -33,6 +33,7 @@ import androidx.compose.ui.unit.sp
 import com.rooler.data.RollerGroup
 import com.rooler.data.RollerRepository
 import com.rooler.data.models.Shift
+import com.rooler.domain.PricingLogic
 import com.rooler.domain.SessionView
 
 fun fmt(ms: Long): String {
