@@ -20,6 +20,7 @@ class RollerRepository(
     companion object {
         const val TRANSACTIONS = "transactions"
         const val DAILY_EXPENSES = "daily_expenses"
+        const val SHIFTS = "shifts"
         fun dateKey(date: Date = Date()): String =
             SimpleDateFormat("yyyy-MM-dd", Locale.US).format(date)
     }
@@ -79,6 +80,29 @@ class RollerRepository(
 
     suspend fun saveExpense(dateKey: String, expense: DailyExpense) {
         db.collection(DAILY_EXPENSES).document(dateKey).set(expense).await()
+    }
+
+    // --- Смены ---
+    fun shiftFlow(dateKey: String): Flow<com.rooler.data.models.Shift> = callbackFlow {
+        val reg = db.collection(SHIFTS).document(dateKey)
+            .addSnapshotListener { snap, err ->
+                if (err != null) { trySend(com.rooler.data.models.Shift(dateKey)); return@addSnapshotListener }
+                trySend(snap?.toObject(com.rooler.data.models.Shift::class.java)
+                    ?: com.rooler.data.models.Shift(dateKey))
+            }
+        awaitClose { reg.remove() }
+    }
+
+    suspend fun openShift(dateKey: String) {
+        db.collection(SHIFTS).document(dateKey)
+            .set(mapOf("dateKey" to dateKey, "openTime" to System.currentTimeMillis()),
+                com.google.firebase.firestore.SetOptions.merge()).await()
+    }
+
+    suspend fun closeShift(dateKey: String) {
+        db.collection(SHIFTS).document(dateKey)
+            .set(mapOf("dateKey" to dateKey, "closeTime" to System.currentTimeMillis()),
+                com.google.firebase.firestore.SetOptions.merge()).await()
     }
 
     fun expenseFlow(dateKey: String): Flow<DailyExpense> = callbackFlow {

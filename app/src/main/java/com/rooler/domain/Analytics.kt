@@ -6,7 +6,9 @@ data class DayAnalytics(
     val totalRevenue: Int,
     val forgivenExtra: Int,
     val netProfit: Int,
-    val rollerUsage: List<Pair<Int, Int>>
+    val rollerUsage: List<Pair<Int, Int>>,
+    val clientsCount: Int = 0,        // кол-во завершённых транзакций
+    val totalHours: Double = 0.0      // суммарные часы проката
 )
 
 object AnalyticsLogic {
@@ -24,6 +26,8 @@ object AnalyticsLogic {
             .eachCount()
             .toList()
             .sortedByDescending { it.second }
-        return DayAnalytics(totalRevenue, forgivenExtra, netProfit, usage)
+        val clientsCount = finished.size
+        val totalHours = transactions.sumOf { it.durationMins } / 60.0
+        return DayAnalytics(totalRevenue, forgivenExtra, netProfit, usage, clientsCount, totalHours)
     }
 }
