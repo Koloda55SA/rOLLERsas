@@ -7,6 +7,7 @@ import android.content.Context
 import android.content.Intent
 import android.os.Build
 import android.os.IBinder
+import android.os.PowerManager
 import androidx.core.app.NotificationCompat
 import com.rooler.data.RollerRepository
 import com.rooler.domain.PricingLogic
@@ -19,14 +20,15 @@ import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.launch
 
 // Foreground Service: держит таймеры в памяти. Каждую секунду проверяет
-// активные сессии и при переходе через 00:00 ставит бейдж в очередь озвучки.
-// Фоновая музыка играет всё время и приглушается на время озвучки.
+// активные сессии и при переходе через 00:00 ставит бейдж в очередь озвучки
+// и показывает heads-up уведомление (поверх приложений и на экране блокировки).
 class TimerService : Service() {
 
     private val scope = CoroutineScope(SupervisorJob() + Dispatchers.Default)
     private val repo = RollerRepository()
     private lateinit var voice: VoicePlayer
     private lateinit var music: BackgroundMusic
+    private var wakeLock: PowerManager.WakeLock? = null
 
     private val endTimes = MutableStateFlow<Map<String, Pair<Int, Long>>>(emptyMap())
     private val announced = mutableSetOf<String>()
@@ -36,10 +38,11 @@ class TimerService : Service() {
         music = BackgroundMusic(this)
         voice = VoicePlayer(
             context = this,
-            onDuckStart = { music.duck() },
-            onDuckEnd = { music.unduck() }
+            onDuckStart = { music.duck(); acquireWake() },
+            onDuckEnd = { music.unduck(); releaseWake() }
         )
-        startForeground(NOTIF_ID, buildNotification())
+        createChannels()
+        startForeground(NOTIF_ID, buildOngoingNotification())
         music.start()
         observeSessions()
         startTicker()
@@ -61,25 +64,61 @@ class TimerService : Service() {
                 if (PricingLogic.remainingMs(end, now) <= 0 && id !in announced) {
                     announced.add(id)
                     voice.enqueue(badge)
+                    showExpiredNotification(badge)
                 }
             }
             delay(1_000)
         }
     }
 
-    private fun buildNotification(): android.app.Notification {
+    // WakeLock на время озвучки, чтобы CPU не уснул при выключенном экране.
+    private fun acquireWake() {
+        if (wakeLock?.isHeld == true) return
+        val pm = getSystemService(Context.POWER_SERVICE) as PowerManager
+        wakeLock = pm.newWakeLock(PowerManager.PARTIAL_WAKE_LOCK, "rollerdrome:voice").apply {
+            acquire(60_000L)
+        }
+    }
+
+    private fun releaseWake() {
+        runCatching { if (wakeLock?.isHeld == true) wakeLock?.release() }
+        wakeLock = null
+    }
+
+    private fun createChannels() {
         if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
             val mgr = getSystemService(Context.NOTIFICATION_SERVICE) as NotificationManager
             mgr.createNotificationChannel(
-                NotificationChannel(CHANNEL, "Roller timers", NotificationManager.IMPORTANCE_LOW)
+                NotificationChannel(CHANNEL, "Таймеры", NotificationManager.IMPORTANCE_LOW)
+            )
+            mgr.createNotificationChannel(
+                NotificationChannel(CHANNEL_ALERT, "Истекло время", NotificationManager.IMPORTANCE_HIGH)
+                    .apply { description = "Уведомление о конце сессии" }
             )
         }
-        return NotificationCompat.Builder(this, CHANNEL)
+    }
+
+    private fun buildOngoingNotification(): android.app.Notification =
+        NotificationCompat.Builder(this, CHANNEL)
             .setContentTitle("Rollerdrome")
             .setContentText("Таймеры сессий активны")
             .setSmallIcon(android.R.drawable.ic_menu_recent_history)
             .setOngoing(true)
             .build()
+
+    // Уведомление поверх других приложений и на экране блокировки.
+    private fun showExpiredNotification(badge: Int) {
+        val mgr = getSystemService(Context.NOTIFICATION_SERVICE) as NotificationManager
+        val n = NotificationCompat.Builder(this, CHANNEL_ALERT)
+            .setContentTitle("Время истекло!")
+            .setContentText("Бейдж $badge — примите возврат")
+            .setSmallIcon(android.R.drawable.ic_lock_idle_alarm)
+            .setPriority(NotificationCompat.PRIORITY_HIGH)
+            .setCategory(NotificationCompat.CATEGORY_ALARM)
+            .setVisibility(NotificationCompat.VISIBILITY_PUBLIC)
+            .setAutoCancel(true)
+            .build()
+        mgr.notify(1000 + badge, n)
     }
 
     override fun onStartCommand(intent: Intent?, flags: Int, startId: Int): Int = START_STICKY
@@ -88,12 +127,14 @@ class TimerService : Service() {
     override fun onDestroy() {
         voice.release()
         music.release()
+        releaseWake()
         scope.cancel()
         super.onDestroy()
     }
 
     companion object {
         private const val CHANNEL = "roller_timers"
+        private const val CHANNEL_ALERT = "roller_alert"
         private const val NOTIF_ID = 1
         fun start(ctx: Context) {
             val i = Intent(ctx, TimerService::class.java)
