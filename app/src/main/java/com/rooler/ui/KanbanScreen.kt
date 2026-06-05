@@ -15,6 +15,7 @@ import androidx.compose.foundation.lazy.grid.LazyVerticalGrid
 import androidx.compose.foundation.lazy.grid.items
 import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.shape.RoundedCornerShape
+import androidx.compose.foundation.text.KeyboardOptions
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Close
 import androidx.compose.material.icons.filled.Settings
@@ -24,6 +25,7 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.text.font.FontWeight
+import androidx.compose.ui.text.input.KeyboardType
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import com.rooler.data.RollerGroup
@@ -167,17 +169,10 @@ fun KanbanScreen(
     }
 
     if (showForceCloseDialog) {
-        AlertDialog(
-            onDismissRequest = { showForceCloseDialog = false },
-            title = { Text("Закрыть ВСЕ активные?", fontWeight = FontWeight.Bold) },
-            text = { Text("Все ролики будут принудительно возвращены (доплата прощена). Это для случаев когда клиенты ушли без возврата.") },
-            confirmButton = {
-                Button(onClick = { vm.forceCloseAll(); showForceCloseDialog = false },
-                    colors = ButtonDefaults.buttonColors(containerColor = RED)) {
-                    Text("Закрыть все", fontWeight = FontWeight.Bold)
-                }
-            },
-            dismissButton = { TextButton(onClick = { showForceCloseDialog = false }) { Text("Отмена") } }
+        ForceCloseDialog(
+            activeCount = busyRollers.size,
+            onConfirm = { vm.forceCloseAll(); showForceCloseDialog = false },
+            onDismiss = { showForceCloseDialog = false }
         )
     }
 
@@ -360,4 +355,44 @@ private fun SessionCard(
             }
         }
     }
+}
+
+@Composable
+private fun ForceCloseDialog(
+    activeCount: Int,
+    onConfirm: () -> Unit,
+    onDismiss: () -> Unit
+) {
+    var input by remember { mutableStateOf("") }
+    val inputInt = input.toIntOrNull()
+    val confirmed = inputInt == activeCount
+
+    AlertDialog(
+        onDismissRequest = onDismiss,
+        title = { Text("\u26A0 Закрыть ВСЕ активные?", fontWeight = FontWeight.Bold, color = RED) },
+        text = {
+            Column {
+                Text("Активных роликов: $activeCount. Все будут принудительно возвращены (доплата прощена).", fontSize = 14.sp)
+                Spacer(Modifier.height(12.dp))
+                Text("Введите число $activeCount для подтверждения:", fontWeight = FontWeight.Bold, fontSize = 14.sp)
+                Spacer(Modifier.height(8.dp))
+                OutlinedTextField(
+                    value = input,
+                    onValueChange = { input = it.filter { c -> c.isDigit() } },
+                    label = { Text("Количество активных") },
+                    keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Number),
+                    singleLine = true,
+                    modifier = Modifier.fillMaxWidth(),
+                    isError = input.isNotEmpty() && !confirmed
+                )
+            }
+        },
+        confirmButton = {
+            Button(onClick = onConfirm, enabled = confirmed,
+                colors = ButtonDefaults.buttonColors(containerColor = RED)) {
+                Text("Закрыть все $activeCount", fontWeight = FontWeight.Bold)
+            }
+        },
+        dismissButton = { TextButton(onClick = onDismiss) { Text("Отмена") } }
+    )
 }
