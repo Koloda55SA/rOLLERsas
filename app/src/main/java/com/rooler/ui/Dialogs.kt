@@ -1,6 +1,7 @@
 package com.rooler.ui
 
 import androidx.compose.foundation.layout.*
+import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.text.KeyboardOptions
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
@@ -31,7 +32,7 @@ fun GiveOutDialog(
                 Text("Выдача ролика #$rollerId", fontWeight = FontWeight.Bold)
                 if (rollerSize != "—" && rollerSize.isNotEmpty()) {
                     Spacer(Modifier.width(8.dp))
-                    Surface(color = Color(0xFF37474F), shape = androidx.compose.foundation.shape.RoundedCornerShape(4.dp)) {
+                    Surface(color = Color(0xFF37474F), shape = RoundedCornerShape(4.dp)) {
                         Text("рз.$rollerSize", color = Color.White, fontSize = 13.sp,
                             modifier = Modifier.padding(horizontal = 6.dp, vertical = 2.dp))
                     }
