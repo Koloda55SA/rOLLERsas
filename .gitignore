@@ -9,3 +9,6 @@
 .cxx
 local.properties
 *.apk
+# runtime-данные приложения
+/app/src/main/files/
+/reports/
