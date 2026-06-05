@@ -68,12 +68,25 @@ class MainViewModel(
         return KanbanState(free, riding, ending, expired)
     }
 
+    // Сообщение об ошибке для UI (например, нет сети).
+    private val _error = MutableStateFlow<String?>(null)
+    val error: StateFlow<String?> = _error.asStateFlow()
+    fun clearError() { _error.value = null }
+
     fun startSession(rollerId: Int, badgeId: Int, durationMins: Int) = viewModelScope.launch {
-        repo.startSession(rollerId, badgeId, durationMins)
+        try {
+            repo.startSession(rollerId, badgeId, durationMins)
+        } catch (e: Exception) {
+            _error.value = "Не удалось выдать ролик: ${e.message}"
+        }
     }
 
     fun returnSession(tx: Transaction, extra: Int, forgiven: Boolean) = viewModelScope.launch {
-        repo.returnSession(tx.id, tx.baseAmount, extra, forgiven)
+        try {
+            repo.returnSession(tx.id, tx.baseAmount, extra, forgiven)
+        } catch (e: Exception) {
+            _error.value = "Не удалось оформить возврат: ${e.message}"
+        }
     }
 
     // --- Бухгалтерия ---
@@ -99,7 +112,9 @@ class MainViewModel(
 
     fun saveExpense(dateKey: String, salary: Int, other: Int, comment: String) =
         viewModelScope.launch {
-            repo.saveExpense(dateKey, DailyExpense(salary, other, comment))
+            try {
+                repo.saveExpense(dateKey, DailyExpense(salary, other, comment))
+            } catch (e: Exception) { _error.value = e.message }
         }
 
     // --- Смена ---
@@ -110,6 +125,10 @@ class MainViewModel(
         repo.shiftFlow(dateKey).collect { _shift.value = it }
     }
 
-    fun openShift(dateKey: String) = viewModelScope.launch { repo.openShift(dateKey) }
-    fun closeShift(dateKey: String) = viewModelScope.launch { repo.closeShift(dateKey) }
+    fun openShift(dateKey: String) = viewModelScope.launch {
+        try { repo.openShift(dateKey) } catch (e: Exception) { _error.value = e.message }
+    }
+    fun closeShift(dateKey: String) = viewModelScope.launch {
+        try { repo.closeShift(dateKey) } catch (e: Exception) { _error.value = e.message }
+    }
 }
