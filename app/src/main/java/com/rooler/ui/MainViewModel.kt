@@ -4,6 +4,7 @@ import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import com.rooler.data.RollerRepository
 import com.rooler.data.models.DailyExpense
+import com.rooler.data.models.Shift
 import com.rooler.data.models.Transaction
 import com.rooler.domain.AnalyticsLogic
 import com.rooler.domain.Column
@@ -96,4 +97,15 @@ class MainViewModel(
         viewModelScope.launch {
             repo.saveExpense(dateKey, DailyExpense(salary, other, comment))
         }
+
+    // --- Смена ---
+    private val _shift = MutableStateFlow(Shift())
+    val shift: StateFlow<Shift> = _shift.asStateFlow()
+
+    fun loadShift(dateKey: String) = viewModelScope.launch {
+        repo.shiftFlow(dateKey).collect { _shift.value = it }
+    }
+
+    fun openShift(dateKey: String) = viewModelScope.launch { repo.openShift(dateKey) }
+    fun closeShift(dateKey: String) = viewModelScope.launch { repo.closeShift(dateKey) }
 }
