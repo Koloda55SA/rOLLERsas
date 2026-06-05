@@ -19,20 +19,28 @@ import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.launch
 
 // Foreground Service: держит таймеры в памяти. Каждую секунду проверяет
-// активные сессии и при переходе через 00:00 озвучивает бейдж один раз.
+// активные сессии и при переходе через 00:00 ставит бейдж в очередь озвучки.
+// Фоновая музыка играет всё время и приглушается на время озвучки.
 class TimerService : Service() {
 
     private val scope = CoroutineScope(SupervisorJob() + Dispatchers.Default)
     private val repo = RollerRepository()
     private lateinit var voice: VoicePlayer
+    private lateinit var music: BackgroundMusic
 
     private val endTimes = MutableStateFlow<Map<String, Pair<Int, Long>>>(emptyMap())
     private val announced = mutableSetOf<String>()
 
     override fun onCreate() {
         super.onCreate()
-        voice = VoicePlayer(this)
+        music = BackgroundMusic(this)
+        voice = VoicePlayer(
+            context = this,
+            onDuckStart = { music.duck() },
+            onDuckEnd = { music.unduck() }
+        )
         startForeground(NOTIF_ID, buildNotification())
+        music.start()
         observeSessions()
         startTicker()
     }
@@ -52,7 +60,7 @@ class TimerService : Service() {
                 val (badge, end) = badgeAndEnd
                 if (PricingLogic.remainingMs(end, now) <= 0 && id !in announced) {
                     announced.add(id)
-                    voice.announce(badge)
+                    voice.enqueue(badge)
                 }
             }
             delay(1_000)
@@ -78,6 +86,8 @@ class TimerService : Service() {
     override fun onBind(intent: Intent?): IBinder? = null
 
     override fun onDestroy() {
+        voice.release()
+        music.release()
         scope.cancel()
         super.onDestroy()
     }
