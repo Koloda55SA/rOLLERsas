@@ -7,6 +7,7 @@ import android.os.Bundle
 import androidx.activity.ComponentActivity
 import androidx.activity.compose.setContent
 import androidx.activity.result.contract.ActivityResultContracts
+import androidx.compose.material3.MaterialTheme
 import androidx.compose.runtime.*
 import androidx.core.content.ContextCompat
 import androidx.lifecycle.viewmodel.compose.viewModel
@@ -15,11 +16,13 @@ import com.rooler.service.TimerService
 // Количество роликов. По умолчанию 50.
 private const val TOTAL_ROLLERS_DEFAULT = 50
 
+enum class Screen { KANBAN, SETTINGS }
+
 class MainActivity : ComponentActivity() {
 
     private val notifPermission = registerForActivityResult(
         ActivityResultContracts.RequestPermission()
-    ) { /* неважно при отказе: сервис всё равно работает */ }
+    ) { /* сервис работает даже при отказе */ }
 
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
@@ -60,7 +63,3 @@ class MainActivity : ComponentActivity() {
         }
     }
 }
-
-import androidx.compose.material3.MaterialTheme
-
-enum class Screen { KANBAN, SETTINGS }
