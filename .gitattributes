@@ -1,0 +1,11 @@
+# Скрипты оболочки и gradle wrapper всегда с LF — иначе сборка на Linux/CI падает
+gradlew text eol=lf
+*.sh text eol=lf
+
+# Бинарники
+*.jar binary
+*.apk binary
+*.png binary
+*.jpg binary
+*.m4a binary
+*.mp3 binary
