@@ -89,6 +89,14 @@ class MainViewModel(
         }
     }
 
+    fun extendSession(txId: String, addMins: Int) = viewModelScope.launch {
+        try {
+            repo.extendSession(txId, addMins)
+        } catch (e: Exception) {
+            _error.value = "Не удалось продлить: ${e.message}"
+        }
+    }
+
     fun forceCloseAll() = viewModelScope.launch {
         try {
             repo.forceCloseActive()

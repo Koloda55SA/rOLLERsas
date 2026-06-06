@@ -45,18 +45,23 @@ fun fmt(ms: Long): String {
     return "%s%02d:%02d".format(sign, m, s)
 }
 
+/**
+ * Водяной знак-«призрак»: бледная подпись по центру фона, чуть видна сзади контента.
+ * Размещать как фоновый слой (за основным содержимым) через Box.
+ */
 @Composable
-fun Watermark() {
-    Row(
-        Modifier.fillMaxWidth().background(R.CH).padding(horizontal = 12.dp, vertical = 3.dp),
-        verticalAlignment = Alignment.CenterVertically
-    ) {
-        Text("Рахманов Сыймыкбек", color = R.WM, fontSize = 10.sp)
-        Spacer(Modifier.width(4.dp))
-        Text("📸 __rahmanov___", color = R.IG, fontSize = 10.sp, fontWeight = FontWeight.Bold)
-        Spacer(Modifier.weight(1f))
+fun GhostWatermark(modifier: Modifier = Modifier) {
+    Box(modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
+        Column(horizontalAlignment = Alignment.CenterHorizontally) {
+            Text("Рахманов Сыймыкбек", color = R.T1.copy(alpha = 0.04f), fontSize = 30.sp, fontWeight = FontWeight.Bold)
+            Text("📸 __rahmanov___", color = R.IG.copy(alpha = 0.05f), fontSize = 18.sp, fontWeight = FontWeight.Bold)
+        }
     }
 }
+
+/** Совместимость со старыми вызовами — теперь ничего не рисует (заменён на GhostWatermark в фоне). */
+@Composable
+fun Watermark() {}
 
 @Composable
 fun KanbanScreen(vm: MainViewModel, totalRollers: Int, groups: List<RollerGroup>, onOpenSettings: () -> Unit) {
@@ -85,7 +90,9 @@ fun KanbanScreen(vm: MainViewModel, totalRollers: Int, groups: List<RollerGroup>
         }
     }
 
-    Column(Modifier.fillMaxSize().background(R.BG)) {
+    Box(Modifier.fillMaxSize().background(R.BG)) {
+        GhostWatermark()
+        Column(Modifier.fillMaxSize()) {
         // ── Хедер ──
         Row(
             Modifier.fillMaxWidth().background(R.GradHeader).padding(horizontal = 16.dp, vertical = 10.dp),
@@ -160,7 +167,7 @@ fun KanbanScreen(vm: MainViewModel, totalRollers: Int, groups: List<RollerGroup>
                 ActColumn("Истекло", "🔴", state.expired, R.RD, R.RD_BG, Modifier.weight(1f), ::onSessionClick, sizeOf)
             }
         }
-        Watermark()
+        }
     }
 
     giveOutRoller?.let { r ->
@@ -169,10 +176,17 @@ fun KanbanScreen(vm: MainViewModel, totalRollers: Int, groups: List<RollerGroup>
         })
     }
     returnSession?.let { sv ->
-        ReturnDialog(sv, { returnSession = null }, { f ->
-            val extra = if (f) 0 else PricingLogic.extraAmount(sv.tx.endTime, System.currentTimeMillis())
-            vm.returnSession(sv.tx, extra, f); returnSession = null; toast = "Ролик #${sv.tx.rollerId} возвращён"
-        })
+        ReturnDialog(
+            sv,
+            onClose = { f ->
+                val extra = if (f) 0 else PricingLogic.extraAmount(sv.tx.endTime, System.currentTimeMillis())
+                vm.returnSession(sv.tx, extra, f); returnSession = null; toast = "Ролик #${sv.tx.rollerId} возвращён"
+            },
+            onExtend = { add ->
+                vm.extendSession(sv.tx.id, add); returnSession = null; toast = "Ролик #${sv.tx.rollerId} продлён на $add мин"
+            },
+            onDismiss = { returnSession = null }
+        )
     }
     earlyReturn?.let { sv ->
         EarlyReturnDialog(sv, { earlyReturn = null }, { f ->

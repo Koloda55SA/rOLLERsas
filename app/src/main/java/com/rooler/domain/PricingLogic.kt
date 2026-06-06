@@ -6,7 +6,8 @@ enum class Column { FREE, RIDING, ENDING, EXPIRED }
 
 object PricingLogic {
     const val EXTRA_PER_MIN = 10
-    private const val ENDING_THRESHOLD_MS = 10_000L
+    // За 5 минут до конца ролик попадает в колонку «Скоро» — кассир успевает подготовиться.
+    private const val ENDING_THRESHOLD_MS = 5 * 60_000L
 
     fun baseAmount(mins: Int): Int = when {
         mins >= 60 -> 400

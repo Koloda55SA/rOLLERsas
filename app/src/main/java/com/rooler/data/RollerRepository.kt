@@ -80,6 +80,28 @@ class RollerRepository(
         ).await()
     }
 
+    /**
+     * Продлевает активную сессию на [addMins] минут от текущего момента.
+     * Просрочка обнуляется (новое время отсчитывается заново), к базовой
+     * стоимости добавляется цена доп. времени.
+     */
+    suspend fun extendSession(txId: String, addMins: Int) {
+        val ref = db.collection(TRANSACTIONS).document(txId)
+        val tx = ref.get().await().toObject(Transaction::class.java) ?: return
+        val now = System.currentTimeMillis()
+        val newBase = tx.baseAmount + PricingLogic.baseAmount(addMins)
+        ref.update(
+            mapOf(
+                "endTime" to now + addMins * 60_000L,
+                "durationMins" to tx.durationMins + addMins,
+                "baseAmount" to newBase,
+                "totalAmount" to newBase,
+                "extraAmount" to 0,
+                "isExtraForgiven" to false
+            )
+        ).await()
+    }
+
     suspend fun forceCloseActive() {
         val snap = db.collection(TRANSACTIONS).whereEqualTo("isActive", true).get().await()
         val now = System.currentTimeMillis()
