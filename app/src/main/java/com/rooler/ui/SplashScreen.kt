@@ -1,5 +1,6 @@
 package com.rooler.ui
 
+import android.widget.FrameLayout
 import android.widget.VideoView
 import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.Box
@@ -12,12 +13,11 @@ import androidx.compose.ui.viewinterop.AndroidView
 import kotlinx.coroutines.delay
 
 /**
- * Заставка при запуске: проигрывает видео splash.mp4 ~2.5 сек, затем входит в приложение.
- * Если видео по какой-то причине не стартует — всё равно уходим дальше по таймеру.
+ * Заставка при запуске: видео splash.mp4 на ВЕСЬ экран (заполняет, обрезая края),
+ * ~2.5-3.5 сек, затем вход. Если видео не стартует — уходим по таймеру.
  */
 @Composable
 fun SplashScreen(onDone: () -> Unit) {
-    // Подстраховка: уходим максимум через 3.5 сек, даже если видео не доиграло/не стартовало.
     LaunchedEffect(Unit) {
         delay(3500)
         onDone()
@@ -26,18 +26,37 @@ fun SplashScreen(onDone: () -> Unit) {
         AndroidView(
             modifier = Modifier.fillMaxSize(),
             factory = { ctx ->
-                VideoView(ctx).apply {
-                    val uri = android.net.Uri.parse("android.resource://${ctx.packageName}/${com.rooler.R.raw.splash}")
-                    setVideoURI(uri)
-                    setOnPreparedListener { mp ->
-                        mp.isLooping = false
-                        runCatching { mp.setVolume(1f, 1f) }
-                        start()
+                // Контейнер на весь экран; видео масштабируем так, чтобы заполнить целиком.
+                val container = FrameLayout(ctx)
+                val video = VideoView(ctx)
+                val lp = FrameLayout.LayoutParams(
+                    FrameLayout.LayoutParams.MATCH_PARENT,
+                    FrameLayout.LayoutParams.MATCH_PARENT
+                ).apply { gravity = android.view.Gravity.CENTER }
+                video.layoutParams = lp
+                container.addView(video)
+
+                val uri = android.net.Uri.parse("android.resource://${ctx.packageName}/${com.rooler.R.raw.splash}")
+                video.setVideoURI(uri)
+                video.setOnPreparedListener { mp ->
+                    mp.isLooping = false
+                    runCatching { mp.setVolume(1f, 1f) }
+                    // Масштаб «cover»: растягиваем VideoView, чтобы видео заполнило экран без полей.
+                    val vw = mp.videoWidth.toFloat()
+                    val vh = mp.videoHeight.toFloat()
+                    if (vw > 0 && vh > 0) {
+                        val cw = container.width.toFloat().coerceAtLeast(1f)
+                        val ch = container.height.toFloat().coerceAtLeast(1f)
+                        val scale = maxOf(cw / vw, ch / vh)
+                        val newLp = FrameLayout.LayoutParams((vw * scale).toInt(), (vh * scale).toInt())
+                        newLp.gravity = android.view.Gravity.CENTER
+                        video.layoutParams = newLp
                     }
-                    // Когда видео доиграло раньше таймера — входим сразу.
-                    setOnCompletionListener { onDone() }
-                    setOnErrorListener { _, _, _ -> onDone(); true }
+                    video.start()
                 }
+                video.setOnCompletionListener { onDone() }
+                video.setOnErrorListener { _, _, _ -> onDone(); true }
+                container
             }
         )
     }

@@ -38,11 +38,11 @@ class VoicePlayer(
     private var focusRequest: Any? = null
 
     init {
-        // Единый потребитель — гарантирует, что озвучка бейджей и объявления
-        // никогда не звучат одновременно.
+        // Единый потребитель — озвучка бейджей и объявления не звучат одновременно.
         scope.launch {
             for (firstBadge in queue) {
-                // Собираем пачку: первый бейдж + всё, что прилетело за окно batch.
+                // Собираем пачку: первый бейдж + всё, что прилетело за короткое окно.
+                // Окно маленькое (чтобы не ждать долго): добираем «почти одновременные».
                 val batch = linkedSetOf(firstBadge)
                 while (true) {
                     val next = withTimeoutOrNull(BATCH_WINDOW_MS) { queue.receive() } ?: break
@@ -50,6 +50,8 @@ class VoicePlayer(
                 }
                 acquireFocus()
                 onDuckStart()
+                // Озвучиваем группами по CHUNK: 3 бейджа + общая фраза, потом следующие 3 + фраза...
+                // Если осталось 2 — 2 + фраза, если 1 — 1 + фраза.
                 playBatch(batch.sorted())
                 drainAnnouncements()
                 if (queue.isEmpty && announcementQueue.isEmpty) {
@@ -100,10 +102,12 @@ class VoicePlayer(
     fun enqueue(badgeId: Int) { queue.trySend(badgeId) }
     fun enqueueAnnouncement(minutesBefore: Int) { announcementQueue.trySend(minutesBefore) }
 
-    /** Все номера бейджей подряд, затем общая фраза один раз. */
+    /** Озвучка группами по [CHUNK]: бейджи подряд, затем общая фраза. И так для каждой группы. */
     private suspend fun playBatch(badges: List<Int>) {
-        for (badge in badges) playOne("num_$badge")
-        playOne("time_ended")
+        badges.chunked(CHUNK).forEach { group ->
+            for (badge in group) playOne("num_$badge")
+            playOne("time_ended")
+        }
     }
 
     private suspend fun playOne(name: String) = suspendCancellableCoroutine<Unit> { cont ->
@@ -142,8 +146,10 @@ class VoicePlayer(
     fun release() { queue.close(); announcementQueue.close() }
 
     companion object {
-        /** Окно сбора пачки бейджей: всё, что истекло за это время, озвучивается вместе. */
-        private const val BATCH_WINDOW_MS = 3_000L
+        /** Короткое окно сбора «почти одновременных» бейджей, чтобы не ждать долго. */
+        private const val BATCH_WINDOW_MS = 1_500L
+        /** Размер группы озвучки: N бейджей + общая фраза. */
+        private const val CHUNK = 3
 
         fun voicesDir(context: Context): File =
             File(context.filesDir, "voices").apply { mkdirs() }

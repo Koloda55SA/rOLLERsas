@@ -34,7 +34,9 @@ import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import com.rooler.data.RollerGroup
 import com.rooler.data.RollerRepository
+import com.rooler.domain.AnalyticsLogic
 import com.rooler.domain.PricingLogic
+import com.rooler.domain.ReportPdf
 import com.rooler.domain.SessionView
 
 fun fmt(ms: Long): String {
@@ -75,7 +77,13 @@ fun KanbanScreen(vm: MainViewModel, totalRollers: Int, groups: List<RollerGroup>
     var earlyReturn by remember { mutableStateOf<SessionView?>(null) }
     var showForceClose by remember { mutableStateOf(false) }
     var showShiftDialog by remember { mutableStateOf(false) }
+    var showCloseShift by remember { mutableStateOf(false) }
     var toast by remember { mutableStateOf<String?>(null) }
+
+    // Данные для отчёта по смене (транзакции дня + расчётная ЗП).
+    val reportTxs by vm.dayTransactions.collectAsState()
+    val reportSalary = (if (shift.staffCount > 0) shift.staffCount else 1) * admin.salaryPerStaff
+    LaunchedEffect(Unit) { vm.loadDayTransactions(RollerRepository.dateKey()) }
 
     val allActive = state.riding + state.ending + state.expired
     val busyIds = allActive.map { it.tx.rollerId }.toSet()
@@ -131,8 +139,19 @@ fun KanbanScreen(vm: MainViewModel, totalRollers: Int, groups: List<RollerGroup>
                     IconButton(onClick = { showForceClose = true }, modifier = Modifier.size(34.dp)) {
                         Icon(Icons.Default.Close, null, tint = R.RD, modifier = Modifier.size(19.dp))
                     }
+                    Spacer(Modifier.width(4.dp))
                 }
+                GradientButton("🔒 Закрыть смену", brush = Brush.linearGradient(listOf(R.YL, Color(0xFFFFD479))), height = 38.dp, fontSize = 13.sp) { showCloseShift = true }
+                Spacer(Modifier.width(6.dp))
             } else {
+                if (shift.closeTime > 0 && shift.cashierName.isNotEmpty()) {
+                    // Смена только что закрыта — предлагаем отправить отчёт.
+                    GradientButton("📤 Отправить отчёт", brush = R.GradPrimary, height = 38.dp, fontSize = 13.sp) {
+                        val a = AnalyticsLogic.compute(reportTxs, reportSalary, 0)
+                        ReportPdf.share(ctx, ReportPdf.generate(ctx, shift.dateKey, shift, a, reportSalary, if (shift.staffCount > 0) shift.staffCount else 1, 0)); toast = "Отчёт сформирован"
+                    }
+                    Spacer(Modifier.width(6.dp))
+                }
                 GradientButton("🔓 Открыть смену", brush = R.GradGreen, height = 38.dp, fontSize = 13.sp) { showShiftDialog = true }
                 Spacer(Modifier.width(6.dp))
             }
@@ -196,6 +215,15 @@ fun KanbanScreen(vm: MainViewModel, totalRollers: Int, groups: List<RollerGroup>
     }
     if (showForceClose) ForceCloseDialog(allActive.size, { vm.forceCloseAll(); showForceClose = false; toast = "Все закрыты" }, { showForceClose = false })
     if (showShiftDialog && !shiftOn) ShiftDialog(admin.lastCashier, { n, staff -> admin.lastCashier = n; vm.openShift(RollerRepository.dateKey(), n, staff); showShiftDialog = false; toast = "Смена открыта: $n" }, { showShiftDialog = false })
+    if (showCloseShift) {
+        AlertDialog(
+            onDismissRequest = { showCloseShift = false }, containerColor = R.S1, shape = RoundedCornerShape(20.dp),
+            title = { Text("🔒 Закрыть смену?", fontWeight = FontWeight.Bold, color = R.T1) },
+            text = { Text(if (allActive.isNotEmpty()) "Внимание: есть ${allActive.size} активных аренд. Сначала примите их или закройте все." else "Смена будет закрыта. После закрытия можно отправить отчёт.", color = R.T2, fontSize = 14.sp) },
+            confirmButton = { GradientButton("Закрыть смену", brush = Brush.linearGradient(listOf(R.YL, Color(0xFFFFD479)))) { vm.closeShift(shift.id); showCloseShift = false; toast = "Смена закрыта" } },
+            dismissButton = { TextButton(onClick = { showCloseShift = false }) { Text("Отмена", color = R.T2) } }
+        )
+    }
 
     toast?.let { t ->
         Snackbar(Modifier.padding(10.dp), containerColor = R.GR, contentColor = Color.White, shape = RoundedCornerShape(12.dp)) { Text("✅ $t", fontWeight = FontWeight.Medium) }

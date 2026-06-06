@@ -134,6 +134,13 @@ class MainViewModel(
     private val _shift = MutableStateFlow(Shift())
     val shift: StateFlow<Shift> = _shift.asStateFlow()
 
+    // Транзакции выбранного дня — для отчёта по смене прямо с главного экрана.
+    private val _dayTransactions = MutableStateFlow<List<Transaction>>(emptyList())
+    val dayTransactions: StateFlow<List<Transaction>> = _dayTransactions.asStateFlow()
+    fun loadDayTransactions(dateKey: String) = viewModelScope.launch {
+        repo.transactionsForDayFlow(dateKey).collect { _dayTransactions.value = it }
+    }
+
     fun loadShift(dateKey: String) = viewModelScope.launch {
         repo.shiftFlow(dateKey).collect { _shift.value = it }
     }
