@@ -59,12 +59,13 @@ class TimerService : Service() {
     private fun startTicker() = scope.launch {
         while (true) {
             val now = System.currentTimeMillis()
+            // Собираем все бейджи, истёкшие в этот тик, и отправляем их в озвучку
+            // одной пачкой — VoicePlayer проговорит их подряд + общую фразу один раз.
             endTimes.value.forEach { (id, badgeAndEnd) ->
                 val (badge, end) = badgeAndEnd
                 if (PricingLogic.remainingMs(end, now) <= 0 && id !in announced) {
                     announced.add(id)
                     showExpiredNotification(badge)
-                    delay(500)
                     voice.enqueue(badge)
                 }
             }

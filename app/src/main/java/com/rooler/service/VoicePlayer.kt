@@ -12,9 +12,20 @@ import kotlinx.coroutines.SupervisorJob
 import kotlinx.coroutines.channels.Channel
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.suspendCancellableCoroutine
+import kotlinx.coroutines.withTimeoutOrNull
 import java.io.File
 import kotlin.coroutines.resume
 
+/**
+ * Озвучка истёкших сессий и объявлений о закрытии.
+ *
+ * Групповая озвучка: когда подряд (в течение [BATCH_WINDOW_MS]) истекает несколько
+ * роликов, бейджи собираются в пачку и проговариваются друг за другом —
+ * "num_1, num_2, num_3, ..." — а общая фраза "у вас заканчивается время"
+ * звучит ОДИН раз в конце, а не после каждого бейджа.
+ *
+ * Несколько пачек/объявлений никогда не накладываются: всё идёт строго по очереди.
+ */
 class VoicePlayer(
     private val context: Context,
     private val onDuckStart: () -> Unit = {},
@@ -27,28 +38,34 @@ class VoicePlayer(
     private var focusRequest: Any? = null
 
     init {
+        // Единый потребитель — гарантирует, что озвучка бейджей и объявления
+        // никогда не звучат одновременно.
         scope.launch {
-            for (badgeId in queue) {
+            for (firstBadge in queue) {
+                // Собираем пачку: первый бейдж + всё, что прилетело за окно batch.
+                val batch = linkedSetOf(firstBadge)
+                while (true) {
+                    val next = withTimeoutOrNull(BATCH_WINDOW_MS) { queue.receive() } ?: break
+                    batch.add(next)
+                }
                 acquireFocus()
                 onDuckStart()
-                playPhrase(badgeId)
+                playBatch(batch.sorted())
+                drainAnnouncements()
                 if (queue.isEmpty && announcementQueue.isEmpty) {
                     onDuckEnd()
                     releaseFocus()
                 }
             }
         }
-        scope.launch {
-            for (minutesBefore in announcementQueue) {
-                acquireFocus()
-                onDuckStart()
-                playOne("announce_$minutesBefore")
-                playOne("closing_reminder")
-                if (queue.isEmpty && announcementQueue.isEmpty) {
-                    onDuckEnd()
-                    releaseFocus()
-                }
-            }
+    }
+
+    /** Проигрывает объявления, накопившиеся пока шла озвучка бейджей. */
+    private suspend fun drainAnnouncements() {
+        while (true) {
+            val minutesBefore = announcementQueue.tryReceive().getOrNull() ?: break
+            playOne("announce_$minutesBefore")
+            playOne("closing_reminder")
         }
     }
 
@@ -83,8 +100,9 @@ class VoicePlayer(
     fun enqueue(badgeId: Int) { queue.trySend(badgeId) }
     fun enqueueAnnouncement(minutesBefore: Int) { announcementQueue.trySend(minutesBefore) }
 
-    private suspend fun playPhrase(badgeId: Int) {
-        playOne("num_$badgeId")
+    /** Все номера бейджей подряд, затем общая фраза один раз. */
+    private suspend fun playBatch(badges: List<Int>) {
+        for (badge in badges) playOne("num_$badge")
         playOne("time_ended")
     }
 
@@ -120,6 +138,9 @@ class VoicePlayer(
     fun release() { queue.close(); announcementQueue.close() }
 
     companion object {
+        /** Окно сбора пачки бейджей: всё, что истекло за это время, озвучивается вместе. */
+        private const val BATCH_WINDOW_MS = 3_000L
+
         fun voicesDir(context: Context): File =
             File(context.filesDir, "voices").apply { mkdirs() }
 

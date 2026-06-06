@@ -18,7 +18,6 @@ import androidx.compose.ui.text.input.PasswordVisualTransformation
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import com.rooler.data.AdminSettings
-import com.rooler.data.RollerRepository
 import com.rooler.domain.ReportPdf
 import com.rooler.service.AnnouncementService
 import java.text.SimpleDateFormat
@@ -32,15 +31,21 @@ fun PinDialog(onDismiss: () -> Unit, onSuccess: () -> Unit) {
     val pin = remember { AdminSettings(ctx).pin }
     var input by remember { mutableStateOf("") }
     var err by remember { mutableStateOf(false) }
-    AlertDialog(onDismissRequest = onDismiss, containerColor = R.S1,
-        title = { Text("PIN-код", fontWeight = FontWeight.Bold, color = R.T1) },
-        text = { Column {
-            OutlinedTextField(input, { input = it.filter { c -> c.isDigit() }.take(4); err = false }, visualTransformation = PasswordVisualTransformation(),
-                keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.NumberPassword), isError = err, singleLine = true, modifier = Modifier.fillMaxWidth(),
-                colors = OutlinedTextFieldDefaults.colors(focusedBorderColor = R.PR, cursorColor = R.PR, unfocusedBorderColor = R.S3))
-            if (err) Text("Неверный PIN", color = R.RD, fontSize = 13.sp)
-        }},
-        confirmButton = { Button(onClick = { if (input == pin) onSuccess() else err = true }, colors = ButtonDefaults.buttonColors(containerColor = R.PR)) { Text("Войти") } },
+    AlertDialog(
+        onDismissRequest = onDismiss, containerColor = R.S1, shape = androidx.compose.foundation.shape.RoundedCornerShape(20.dp),
+        title = { Text("🔐 PIN-код", fontWeight = FontWeight.Bold, color = R.T1) },
+        text = {
+            Column {
+                OutlinedTextField(
+                    input, { input = it.filter { c -> c.isDigit() }.take(4); err = false }, visualTransformation = PasswordVisualTransformation(),
+                    keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.NumberPassword), isError = err, singleLine = true, modifier = Modifier.fillMaxWidth(),
+                    shape = androidx.compose.foundation.shape.RoundedCornerShape(12.dp),
+                    colors = OutlinedTextFieldDefaults.colors(focusedBorderColor = R.PR, cursorColor = R.PR, unfocusedBorderColor = R.S3)
+                )
+                if (err) Text("Неверный PIN", color = R.RD, fontSize = 13.sp)
+            }
+        },
+        confirmButton = { GradientButton("Войти") { if (input == pin) onSuccess() else err = true } },
         dismissButton = { TextButton(onClick = onDismiss) { Text("Отмена", color = R.T2) } }
     )
 }
@@ -66,61 +71,109 @@ fun SettingsScreen(vm: MainViewModel, onOpenVoiceSetup: () -> Unit, onOpenAdmin:
     var showOpenShiftDialog by remember { mutableStateOf(false) }
     LaunchedEffect(Unit) { AnnouncementService.start(ctx) }
 
-    Scaffold(containerColor = R.BG, topBar = { TopAppBar(title = { Text("Бухгалтерия", color = R.T1) }, navigationIcon = { IconButton(onClick = onBack) { Icon(Icons.Default.ArrowBack, null, tint = R.T2) } }, colors = TopAppBarDefaults.topAppBarColors(containerColor = R.S1)) }) { pad ->
+    Scaffold(
+        containerColor = R.BG,
+        topBar = { TopAppBar(title = { Text("Бухгалтерия", color = R.T1, fontWeight = FontWeight.Bold) }, navigationIcon = { IconButton(onClick = onBack) { Icon(Icons.Default.ArrowBack, null, tint = R.T2) } }, colors = TopAppBarDefaults.topAppBarColors(containerColor = R.S1)) }
+    ) { pad ->
         Column(Modifier.padding(pad).fillMaxSize()) {
-            LazyColumn(Modifier.weight(1f).padding(14.dp)) {
+            LazyColumn(Modifier.weight(1f).padding(14.dp), verticalArrangement = Arrangement.spacedBy(10.dp)) {
+                // Навигация
                 item {
-                    OutlinedButton(onClick = { showDP = true }, modifier = Modifier.fillMaxWidth(), colors = ButtonDefaults.outlinedButtonColors(contentColor = R.T2)) { Text("\uD83D\uDCC5 $dk") }
-                    Spacer(Modifier.height(6.dp))
+                    OutlineButton("📅  $dk", color = R.T2, modifier = Modifier.fillMaxWidth()) { showDP = true }
+                    Spacer(Modifier.height(8.dp))
                     Row(Modifier.fillMaxWidth()) {
-                        OutlinedButton(onClick = onOpenVoiceSetup, modifier = Modifier.weight(1f), colors = ButtonDefaults.outlinedButtonColors(contentColor = R.SC)) { Text("\uD83C\uDFA4 Озвучка") }
-                        Spacer(Modifier.width(6.dp))
-                        OutlinedButton(onClick = onOpenAdmin, modifier = Modifier.weight(1f), colors = ButtonDefaults.outlinedButtonColors(contentColor = R.PR)) { Text("\u2699 Админ") }
+                        OutlineButton("🎤 Озвучка", color = R.SC, modifier = Modifier.weight(1f)) { onOpenVoiceSetup() }
+                        Spacer(Modifier.width(8.dp))
+                        OutlineButton("⚙ Админ", color = R.PR2, modifier = Modifier.weight(1f)) { onOpenAdmin() }
                     }
-                    Spacer(Modifier.height(6.dp))
-                    OutlinedButton(onClick = onOpenShiftHistory, modifier = Modifier.fillMaxWidth(), colors = ButtonDefaults.outlinedButtonColors(contentColor = R.T2)) { Text("\uD83D\uDCDC История смен") }
-
-                    Spacer(Modifier.height(14.dp))
-                    Text("Смена", fontWeight = FontWeight.Bold, fontSize = 17.sp, color = R.T1)
-                    if (sh.cashierName.isNotEmpty()) Text("\uD83D\uDC64 ${sh.cashierName}", fontSize = 14.sp, color = R.PR2, fontWeight = FontWeight.Medium)
-                    Text("${tf(sh.openTime)} — ${tf(sh.closeTime)}", fontSize = 13.sp, color = R.T2)
-                    Row(Modifier.fillMaxWidth().padding(top = 4.dp)) {
-                        if (sh.openTime <= 0 || sh.closeTime > 0) Button(onClick = { if (sh.cashierName.isNotEmpty()) { vm.openShift(dk, sh.cashierName); toast = "Смена открыта" } else showOpenShiftDialog = true }, modifier = Modifier.weight(1f), colors = ButtonDefaults.buttonColors(containerColor = R.GR)) { Text("Открыть") }
-                        if (sh.openTime > 0 && sh.closeTime <= 0) { Spacer(Modifier.width(6.dp)); OutlinedButton(onClick = { vm.closeShift(sh.id); toast = "Смена закрыта" }, modifier = Modifier.weight(1f), colors = ButtonDefaults.outlinedButtonColors(contentColor = R.YL)) { Text("Закрыть") } }
-                    }
-                    if (sh.openTime > 0 && sh.closeTime <= 0) { Spacer(Modifier.height(4.dp)); OutlinedButton(onClick = { vm.forceCloseAll(); toast = "Все закрыты" }, modifier = Modifier.fillMaxWidth(), colors = ButtonDefaults.outlinedButtonColors(contentColor = R.RD)) { Text("\u26A0 Закрыть ВСЕ активные", fontWeight = FontWeight.Bold) } }
-
-                    Spacer(Modifier.height(14.dp))
-                    Text("Расходы", fontWeight = FontWeight.Bold, fontSize = 17.sp, color = R.T1)
-                    OF("Зарплата", salary) { salary = it }
-                    OF("Прочие", other) { other = it }
-                    OutlinedTextField(comment, { comment = it }, label = { Text("Коммент") }, modifier = Modifier.fillMaxWidth(), colors = tfColors())
-                    Button(onClick = { vm.saveExpense(dk, salary.toIntOrNull() ?: 0, other.toIntOrNull() ?: 0, comment); toast = "Сохранено" }, modifier = Modifier.fillMaxWidth().padding(top = 6.dp), colors = ButtonDefaults.buttonColors(containerColor = R.PR)) { Text("\uD83D\uDCBE Сохранить") }
-
-                    Spacer(Modifier.height(14.dp))
-                    Text("Аналитика", fontWeight = FontWeight.Bold, fontSize = 17.sp, color = R.T1)
+                    Spacer(Modifier.height(8.dp))
+                    OutlineButton("📜 История смен", color = R.T2, modifier = Modifier.fillMaxWidth()) { onOpenShiftHistory() }
                 }
+
+                // Смена
+                item {
+                    SectionCard("🕐 Смена") {
+                        if (sh.cashierName.isNotEmpty()) Text("👤 ${sh.cashierName}", fontSize = 14.sp, color = R.PR2, fontWeight = FontWeight.Medium)
+                        Text("${tf(sh.openTime)} — ${tf(sh.closeTime)}", fontSize = 13.sp, color = R.T2)
+                        Spacer(Modifier.height(8.dp))
+                        Row(Modifier.fillMaxWidth()) {
+                            if (sh.openTime <= 0 || sh.closeTime > 0) {
+                                GradientButton("🔓 Открыть", brush = R.GradGreen, modifier = Modifier.weight(1f)) {
+                                    if (sh.cashierName.isNotEmpty()) { vm.openShift(dk, sh.cashierName); toast = "Смена открыта" } else showOpenShiftDialog = true
+                                }
+                            }
+                            if (sh.openTime > 0 && sh.closeTime <= 0) {
+                                OutlineButton("🔒 Закрыть", color = R.YL, modifier = Modifier.weight(1f)) { vm.closeShift(sh.id); toast = "Смена закрыта" }
+                            }
+                        }
+                        if (sh.openTime > 0 && sh.closeTime <= 0) {
+                            Spacer(Modifier.height(8.dp))
+                            OutlineButton("⚠ Закрыть ВСЕ активные", color = R.RD, modifier = Modifier.fillMaxWidth()) { vm.forceCloseAll(); toast = "Все закрыты" }
+                        }
+                    }
+                }
+
+                // Расходы
+                item {
+                    SectionCard("💰 Расходы") {
+                        OF("Зарплата", salary) { salary = it }
+                        Spacer(Modifier.height(8.dp))
+                        OF("Прочие", other) { other = it }
+                        Spacer(Modifier.height(8.dp))
+                        OutlinedTextField(comment, { comment = it }, label = { Text("Коммент") }, modifier = Modifier.fillMaxWidth(), shape = androidx.compose.foundation.shape.RoundedCornerShape(12.dp), colors = tfColors())
+                        Spacer(Modifier.height(10.dp))
+                        GradientButton("💾 Сохранить", modifier = Modifier.fillMaxWidth()) {
+                            vm.saveExpense(dk, salary.toIntOrNull() ?: 0, other.toIntOrNull() ?: 0, comment); toast = "Сохранено"
+                        }
+                    }
+                }
+
+                // Аналитика
+                item { Text("📊 Аналитика", fontWeight = FontWeight.Bold, fontSize = 17.sp, color = R.T1) }
                 an?.let { a ->
                     item {
-                        SR("Клиентов", "${a.clientsCount}"); SR("Часы", "%.1f ч".format(a.totalHours)); SR("Выручка", "${a.totalRevenue} с"); SR("Прощено", "${a.forgivenExtra} с")
-                        SR("Зарплата", "${exp.salary} с"); SR("Прочие", "${exp.otherExpenses} с")
-                        HorizontalDivider(color = R.DV, modifier = Modifier.padding(vertical = 4.dp))
-                        SR("Чистая прибыль", "${a.netProfit} с", true)
-                        Button(onClick = { ReportPdf.share(ctx, ReportPdf.generate(ctx, dk, sh, a, exp.salary, admin.staffCount, exp.otherExpenses)); toast = "PDF создан" }, modifier = Modifier.fillMaxWidth().padding(top = 8.dp), colors = ButtonDefaults.buttonColors(containerColor = R.SC)) { Text("\uD83D\uDCC4 PDF") }
-                        Spacer(Modifier.height(10.dp)); Text("Износ роликов", fontWeight = FontWeight.Bold, fontSize = 15.sp, color = R.T1)
+                        SectionCard(null) {
+                            SR("Клиентов", "${a.clientsCount}"); SR("Часы", "%.1f ч".format(a.totalHours)); SR("Выручка", "${a.totalRevenue} с"); SR("Прощено", "${a.forgivenExtra} с")
+                            SR("Зарплата", "${exp.salary} с"); SR("Прочие", "${exp.otherExpenses} с")
+                            HorizontalDivider(color = R.DV, modifier = Modifier.padding(vertical = 6.dp))
+                            SR("Чистая прибыль", "${a.netProfit} с", true)
+                            Spacer(Modifier.height(10.dp))
+                            GradientButton("📄 PDF-отчёт", brush = androidx.compose.ui.graphics.Brush.linearGradient(listOf(R.SC, Color(0xFF18B7A3))), modifier = Modifier.fillMaxWidth()) {
+                                ReportPdf.share(ctx, ReportPdf.generate(ctx, dk, sh, a, exp.salary, admin.staffCount, exp.otherExpenses)); toast = "PDF создан"
+                            }
+                        }
                     }
+                    item { Text("Износ роликов", fontWeight = FontWeight.Bold, fontSize = 15.sp, color = R.T1) }
                     items(a.rollerUsage) { (r, c) -> SR("#$r", "$c выдач") }
                 } ?: item { Text("Нет данных", color = R.T3) }
             }
             Watermark()
         }
     }
-    if (showDP) { val dp = rememberDatePickerState(); DatePickerDialog(onDismissRequest = { showDP = false }, confirmButton = { TextButton(onClick = { dp.selectedDateMillis?.let { vm.selectDate(mdk(it)) }; showDP = false }) { Text("OK") } }, dismissButton = { TextButton(onClick = { showDP = false }) { Text("Отмена") } }) { DatePicker(dp) } }
+    if (showDP) {
+        val dp = rememberDatePickerState()
+        DatePickerDialog(onDismissRequest = { showDP = false }, confirmButton = { TextButton(onClick = { dp.selectedDateMillis?.let { vm.selectDate(mdk(it)) }; showDP = false }) { Text("OK") } }, dismissButton = { TextButton(onClick = { showDP = false }) { Text("Отмена") } }) { DatePicker(dp) }
+    }
     if (showOpenShiftDialog) ShiftDialog({ n -> vm.openShift(dk, n); showOpenShiftDialog = false; toast = "Смена открыта: $n" }, { showOpenShiftDialog = false })
-    toast?.let { t -> Snackbar(Modifier.padding(10.dp), containerColor = R.GR.copy(alpha = 0.9f), contentColor = Color.White) { Text("\u2705 $t", fontWeight = FontWeight.Medium) }; LaunchedEffect(t) { kotlinx.coroutines.delay(2500); toast = null } }
+    toast?.let { t -> Snackbar(Modifier.padding(10.dp), containerColor = R.GR, contentColor = Color.White, shape = androidx.compose.foundation.shape.RoundedCornerShape(12.dp)) { Text("✅ $t", fontWeight = FontWeight.Medium) }; LaunchedEffect(t) { kotlinx.coroutines.delay(2500); toast = null } }
 }
 
-@Composable private fun SR(l: String, v: String, b: Boolean = false) = Row(Modifier.fillMaxWidth().padding(vertical = 2.dp)) { Text(l, fontSize = 14.sp, color = R.T2, modifier = Modifier.weight(1f), fontWeight = if (b) FontWeight.Bold else FontWeight.Normal); Text(v, fontSize = 14.sp, color = if (b) R.T1 else R.T2, fontWeight = if (b) FontWeight.Bold else FontWeight.Normal) }
-@Composable private fun OF(label: String, v: String, cb: (String) -> Unit) = OutlinedTextField(v, { cb(it.filter { c -> c.isDigit() }) }, label = { Text(label) }, keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Number), singleLine = true, modifier = Modifier.fillMaxWidth().padding(vertical = 2.dp), colors = tfColors())
-@Composable private fun tfColors() = OutlinedTextFieldDefaults.colors(focusedBorderColor = R.PR, cursorColor = R.PR, unfocusedBorderColor = R.S3, focusedLabelColor = R.PR2, unfocusedLabelColor = R.T3)
+@Composable private fun SectionCard(title: String?, content: @Composable ColumnScope.() -> Unit) {
+    GlassCard(Modifier.fillMaxWidth()) {
+        Column(Modifier.padding(14.dp)) {
+            if (title != null) { Text(title, fontWeight = FontWeight.Bold, fontSize = 16.sp, color = R.T1); Spacer(Modifier.height(8.dp)) }
+            content()
+        }
+    }
+}
+
+@Composable private fun SR(l: String, v: String, b: Boolean = false) = Row(Modifier.fillMaxWidth().padding(vertical = 3.dp)) {
+    Text(l, fontSize = 14.sp, color = if (b) R.T1 else R.T2, modifier = Modifier.weight(1f), fontWeight = if (b) FontWeight.Bold else FontWeight.Normal)
+    Text(v, fontSize = 14.sp, color = if (b) R.GR else R.T1, fontWeight = if (b) FontWeight.Bold else FontWeight.Medium)
+}
+
+@Composable private fun OF(label: String, v: String, cb: (String) -> Unit) = OutlinedTextField(v, { cb(it.filter { c -> c.isDigit() }) }, label = { Text(label) }, keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Number), singleLine = true, modifier = Modifier.fillMaxWidth(), shape = androidx.compose.foundation.shape.RoundedCornerShape(12.dp), colors = tfColors())
+
+@Composable private fun tfColors() = OutlinedTextFieldDefaults.colors(focusedBorderColor = R.PR, cursorColor = R.PR, unfocusedBorderColor = R.S3, focusedLabelColor = R.PR2, unfocusedLabelColor = R.T3, focusedTextColor = R.T1, unfocusedTextColor = R.T1)
+
 private fun mdk(m: Long) = Calendar.getInstance().apply { timeInMillis = m }.run { "%04d-%02d-%02d".format(get(Calendar.YEAR), get(Calendar.MONTH) + 1, get(Calendar.DAY_OF_MONTH)) }
