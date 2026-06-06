@@ -34,6 +34,11 @@ class AdminSettings(context: Context) {
         get() = prefs.getBoolean(KEY_ADS, false)
         set(v) = prefs.edit().putBoolean(KEY_ADS, v).apply()
 
+    /** Имя последнего кассира — подставляется при открытии новой смены. */
+    var lastCashier: String
+        get() = prefs.getString(KEY_LAST_CASHIER, "") ?: ""
+        set(v) = prefs.edit().putString(KEY_LAST_CASHIER, v).apply()
+
     fun defaultDailySalary(): Int = staffCount * salaryPerStaff
 
     fun loadAnnouncementMinutes(): List<Int> {
@@ -79,5 +84,6 @@ class AdminSettings(context: Context) {
         private const val KEY_ADS = "ads_enabled"
         private const val KEY_ANNOUNCEMENTS = "announcement_minutes"
         private const val KEY_GROUPS = "roller_groups"
+        private const val KEY_LAST_CASHIER = "last_cashier"
     }
 }

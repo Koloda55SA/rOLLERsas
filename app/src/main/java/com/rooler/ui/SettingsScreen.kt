@@ -1,9 +1,13 @@
 package com.rooler.ui
 
+import androidx.compose.foundation.background
+import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
+import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.text.KeyboardOptions
+import androidx.compose.ui.draw.clip
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.ArrowBack
 import androidx.compose.material3.*
@@ -77,17 +81,19 @@ fun SettingsScreen(vm: MainViewModel, onOpenVoiceSetup: () -> Unit, onOpenAdmin:
     ) { pad ->
         Column(Modifier.padding(pad).fillMaxSize()) {
             LazyColumn(Modifier.weight(1f).padding(14.dp), verticalArrangement = Arrangement.spacedBy(10.dp)) {
-                // Навигация
+                // Навигация — аккуратное вертикальное меню
                 item {
                     OutlineButton("📅  $dk", color = R.T2, modifier = Modifier.fillMaxWidth()) { showDP = true }
-                    Spacer(Modifier.height(8.dp))
-                    Row(Modifier.fillMaxWidth()) {
-                        OutlineButton("🎤 Озвучка", color = R.SC, modifier = Modifier.weight(1f)) { onOpenVoiceSetup() }
-                        Spacer(Modifier.width(8.dp))
-                        OutlineButton("⚙ Админ", color = R.PR2, modifier = Modifier.weight(1f)) { onOpenAdmin() }
+                    Spacer(Modifier.height(10.dp))
+                    GlassCard(Modifier.fillMaxWidth()) {
+                        Column {
+                            MenuRow("🎤", "Озвучка", "Запись фраз и номеров бейджей", R.SC) { onOpenVoiceSetup() }
+                            HorizontalDivider(color = R.DV)
+                            MenuRow("⚙", "Админ-настройки", "Ролики, группы, ЗП, время, PIN", R.PR2) { onOpenAdmin() }
+                            HorizontalDivider(color = R.DV)
+                            MenuRow("📜", "История смен", "Прошлые смены и отчёты", R.T2) { onOpenShiftHistory() }
+                        }
                     }
-                    Spacer(Modifier.height(8.dp))
-                    OutlineButton("📜 История смен", color = R.T2, modifier = Modifier.fillMaxWidth()) { onOpenShiftHistory() }
                 }
 
                 // Смена
@@ -154,7 +160,7 @@ fun SettingsScreen(vm: MainViewModel, onOpenVoiceSetup: () -> Unit, onOpenAdmin:
         val dp = rememberDatePickerState()
         DatePickerDialog(onDismissRequest = { showDP = false }, confirmButton = { TextButton(onClick = { dp.selectedDateMillis?.let { vm.selectDate(mdk(it)) }; showDP = false }) { Text("OK") } }, dismissButton = { TextButton(onClick = { showDP = false }) { Text("Отмена") } }) { DatePicker(dp) }
     }
-    if (showOpenShiftDialog) ShiftDialog({ n -> vm.openShift(dk, n); showOpenShiftDialog = false; toast = "Смена открыта: $n" }, { showOpenShiftDialog = false })
+    if (showOpenShiftDialog) ShiftDialog(admin.lastCashier, { n -> admin.lastCashier = n; vm.openShift(dk, n); showOpenShiftDialog = false; toast = "Смена открыта: $n" }, { showOpenShiftDialog = false })
     toast?.let { t -> Snackbar(Modifier.padding(10.dp), containerColor = R.GR, contentColor = Color.White, shape = androidx.compose.foundation.shape.RoundedCornerShape(12.dp)) { Text("✅ $t", fontWeight = FontWeight.Medium) }; LaunchedEffect(t) { kotlinx.coroutines.delay(2500); toast = null } }
 }
 
@@ -164,6 +170,24 @@ fun SettingsScreen(vm: MainViewModel, onOpenVoiceSetup: () -> Unit, onOpenAdmin:
             if (title != null) { Text(title, fontWeight = FontWeight.Bold, fontSize = 16.sp, color = R.T1); Spacer(Modifier.height(8.dp)) }
             content()
         }
+    }
+}
+
+@Composable private fun MenuRow(icon: String, title: String, subtitle: String, accent: androidx.compose.ui.graphics.Color, onClick: () -> Unit) {
+    Row(
+        Modifier.fillMaxWidth().clickable { onClick() }.padding(14.dp),
+        verticalAlignment = Alignment.CenterVertically
+    ) {
+        Box(
+            Modifier.size(40.dp).clip(androidx.compose.foundation.shape.RoundedCornerShape(11.dp)).background(accent.copy(alpha = 0.16f)),
+            contentAlignment = Alignment.Center
+        ) { Text(icon, fontSize = 18.sp) }
+        Spacer(Modifier.width(12.dp))
+        Column(Modifier.weight(1f)) {
+            Text(title, fontWeight = FontWeight.SemiBold, fontSize = 15.sp, color = R.T1)
+            Text(subtitle, fontSize = 12.sp, color = R.T3)
+        }
+        Text("›", fontSize = 22.sp, color = R.T3)
     }
 }
 

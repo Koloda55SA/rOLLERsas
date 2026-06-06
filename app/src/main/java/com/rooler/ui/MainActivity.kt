@@ -7,7 +7,6 @@ import android.os.Bundle
 import androidx.activity.ComponentActivity
 import androidx.activity.compose.setContent
 import androidx.activity.result.contract.ActivityResultContracts
-import androidx.compose.material3.MaterialTheme
 import androidx.compose.runtime.*
 import androidx.core.content.ContextCompat
 import androidx.lifecycle.viewmodel.compose.viewModel
@@ -31,7 +30,7 @@ class MainActivity : ComponentActivity() {
         TimerService.start(this)
 
         setContent {
-            MaterialTheme {
+            RollerTheme {
                 val vm: MainViewModel = viewModel()
                 val admin = remember { AdminSettings(this) }
                 val rollerGroups = remember { RollerGroups(this) }

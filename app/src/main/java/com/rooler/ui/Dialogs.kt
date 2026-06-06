@@ -23,7 +23,7 @@ import kotlinx.coroutines.delay
 @Composable
 fun GiveOutDialog(rollerId: Int, rollerSize: String, onDismiss: () -> Unit, onStart: (badgeId: Int, mins: Int) -> Unit) {
     var badge by remember { mutableStateOf("") }
-    var mins by remember { mutableStateOf(1) }
+    var mins by remember { mutableStateOf(30) }
     val ok = badge.toIntOrNull()?.let { it > 0 } ?: false
     AlertDialog(
         onDismissRequest = onDismiss, containerColor = R.S1, shape = RoundedCornerShape(20.dp),

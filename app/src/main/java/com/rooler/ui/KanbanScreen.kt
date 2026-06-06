@@ -60,6 +60,8 @@ fun Watermark() {
 
 @Composable
 fun KanbanScreen(vm: MainViewModel, totalRollers: Int, groups: List<RollerGroup>, onOpenSettings: () -> Unit) {
+    val ctx = androidx.compose.ui.platform.LocalContext.current
+    val admin = remember { com.rooler.data.AdminSettings(ctx) }
     val state by vm.kanban.collectAsState()
     val now by vm.currentDateTime.collectAsState()
     val shift by vm.shift.collectAsState()
@@ -90,9 +92,16 @@ fun KanbanScreen(vm: MainViewModel, totalRollers: Int, groups: List<RollerGroup>
             verticalAlignment = Alignment.CenterVertically
         ) {
             Box(
-                Modifier.size(38.dp).clip(RoundedCornerShape(11.dp)).background(R.GradPrimary),
+                Modifier.size(38.dp).clip(RoundedCornerShape(11.dp)),
                 contentAlignment = Alignment.Center
-            ) { Text("🛼", fontSize = 19.sp) }
+            ) {
+                androidx.compose.foundation.Image(
+                    painter = androidx.compose.ui.res.painterResource(id = com.rooler.R.drawable.logo),
+                    contentDescription = null,
+                    modifier = Modifier.fillMaxSize(),
+                    contentScale = androidx.compose.ui.layout.ContentScale.Crop
+                )
+            }
             Spacer(Modifier.width(10.dp))
             Column {
                 Text("Роллердром", color = R.T1, fontSize = 19.sp, fontWeight = FontWeight.Bold)
@@ -172,7 +181,7 @@ fun KanbanScreen(vm: MainViewModel, totalRollers: Int, groups: List<RollerGroup>
         })
     }
     if (showForceClose) ForceCloseDialog(allActive.size, { vm.forceCloseAll(); showForceClose = false; toast = "Все закрыты" }, { showForceClose = false })
-    if (showShiftDialog && !shiftOn) ShiftDialog({ n -> vm.openShift(RollerRepository.dateKey(), n); showShiftDialog = false; toast = "Смена открыта: $n" }, { showShiftDialog = false })
+    if (showShiftDialog && !shiftOn) ShiftDialog(admin.lastCashier, { n -> admin.lastCashier = n; vm.openShift(RollerRepository.dateKey(), n); showShiftDialog = false; toast = "Смена открыта: $n" }, { showShiftDialog = false })
 
     toast?.let { t ->
         Snackbar(Modifier.padding(10.dp), containerColor = R.GR, contentColor = Color.White, shape = RoundedCornerShape(12.dp)) { Text("✅ $t", fontWeight = FontWeight.Medium) }
@@ -191,8 +200,8 @@ fun KanbanScreen(vm: MainViewModel, totalRollers: Int, groups: List<RollerGroup>
     }
 }
 
-@Composable fun ShiftDialog(onOpen: (String) -> Unit, onDismiss: () -> Unit) {
-    var name by remember { mutableStateOf("") }
+@Composable fun ShiftDialog(initialName: String = "", onOpen: (String) -> Unit, onDismiss: () -> Unit) {
+    var name by remember { mutableStateOf(initialName) }
     AlertDialog(
         onDismissRequest = onDismiss, containerColor = R.S1, shape = RoundedCornerShape(20.dp),
         title = { Text("🔓 Открытие смены", fontWeight = FontWeight.Bold, color = R.T1) },
@@ -310,32 +319,24 @@ fun KanbanScreen(vm: MainViewModel, totalRollers: Int, groups: List<RollerGroup>
     var alpha by remember { mutableFloatStateOf(1f) }
     if (expired) {
         val t = rememberInfiniteTransition(label = "b")
-        alpha = t.animateFloat(1f, 0.45f, infiniteRepeatable(tween(600), RepeatMode.Reverse), label = "a").value
+        alpha = t.animateFloat(1f, 0.5f, infiniteRepeatable(tween(600), RepeatMode.Reverse), label = "a").value
     }
     Box(
-        Modifier.fillMaxWidth().clip(RoundedCornerShape(14.dp))
+        Modifier.fillMaxWidth().clip(RoundedCornerShape(11.dp))
             .background(accent.copy(alpha = if (expired) alpha else 0.92f))
             .clickable { onClick(sv) }
-            .padding(10.dp)
+            .padding(horizontal = 9.dp, vertical = 7.dp)
     ) {
         Column {
             Row(verticalAlignment = Alignment.CenterVertically) {
-                Box(Modifier.clip(RoundedCornerShape(7.dp)).background(Color.White.copy(alpha = 0.28f)).padding(horizontal = 7.dp, vertical = 2.dp)) {
-                    Text("🎫 ${sv.tx.badgeId}", color = Color.White, fontWeight = FontWeight.Bold, fontSize = 15.sp)
-                }
-                Spacer(Modifier.width(5.dp))
-                Text("#${sv.tx.rollerId}", color = Color.White.copy(alpha = 0.7f), fontSize = 11.sp, fontWeight = FontWeight.Medium)
-                if (sv.tx.rollerSize.isNotEmpty()) Text(" рз.${sv.tx.rollerSize}", color = Color.White.copy(alpha = 0.55f), fontSize = 10.sp)
+                Text("🎫${sv.tx.badgeId}", color = Color.White, fontWeight = FontWeight.Bold, fontSize = 15.sp)
+                Spacer(Modifier.width(6.dp))
+                Text("#${sv.tx.rollerId}${if (sv.tx.rollerSize.isNotEmpty()) " · ${sv.tx.rollerSize}" else ""}", color = Color.White.copy(alpha = 0.7f), fontSize = 10.sp)
+                Spacer(Modifier.weight(1f))
+                Text(fmt(sv.remainingMs), color = Color.White, fontSize = 20.sp, fontWeight = FontWeight.Bold)
             }
-            Spacer(Modifier.height(3.dp))
-            Text(fmt(sv.remainingMs), color = Color.White, fontSize = 26.sp, fontWeight = FontWeight.Bold)
-            Text("${sv.tx.durationMins} мин · ${sv.tx.baseAmount} с", color = Color.White.copy(alpha = 0.75f), fontSize = 11.sp)
             if (expired) {
-                Spacer(Modifier.height(2.dp))
-                Text("Доплата ${sv.extraAmount} с · Итого ${sv.tx.baseAmount + sv.extraAmount} с", color = Color.White, fontSize = 12.sp, fontWeight = FontWeight.SemiBold)
-                Text("👆 Принять возврат", color = Color.White.copy(alpha = 0.7f), fontSize = 10.sp)
-            } else {
-                Text("👆 Досрочный возврат", color = Color.White.copy(alpha = 0.55f), fontSize = 10.sp)
+                Text("Доплата ${sv.extraAmount}с · Итого ${sv.tx.baseAmount + sv.extraAmount}с · 👆 возврат", color = Color.White.copy(alpha = 0.92f), fontSize = 10.sp, fontWeight = FontWeight.Medium)
             }
         }
     }

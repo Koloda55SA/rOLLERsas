@@ -23,7 +23,10 @@ import java.util.Date
 import java.util.Locale
 
 private fun tf(ms: Long) = if (ms <= 0) "—" else SimpleDateFormat("HH:mm", Locale.US).format(Date(ms))
-private fun df(dk: String) = dk.split("-").let { "${it[2]}.${it[1]}.${it[0]}" }
+private fun df(dk: String): String {
+    val parts = dk.split("-")
+    return if (parts.size == 3) "${parts[2]}.${parts[1]}.${parts[0]}" else dk
+}
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
@@ -33,7 +36,14 @@ fun ShiftHistoryScreen(onBack: () -> Unit) {
     var shifts by remember { mutableStateOf<List<Pair<String, Shift>>>(emptyList()) }
     var loading by remember { mutableStateOf(true) }
     var toast by remember { mutableStateOf<String?>(null) }
-    LaunchedEffect(Unit) { shifts = repo.loadShiftHistory(60); loading = false }
+    LaunchedEffect(Unit) {
+        try {
+            shifts = repo.loadShiftHistory(60)
+        } catch (e: Exception) {
+            toast = "Ошибка загрузки: ${e.message}"
+        }
+        loading = false
+    }
 
     Scaffold(containerColor = R.BG, topBar = { TopAppBar(title = { Text("История смен", color = R.T1) }, navigationIcon = { IconButton(onClick = onBack) { Icon(Icons.Default.ArrowBack, null, tint = R.T2) } }, colors = TopAppBarDefaults.topAppBarColors(containerColor = R.S1)) }) { pad ->
         Column(Modifier.padding(pad).fillMaxSize()) {
@@ -45,11 +55,11 @@ fun ShiftHistoryScreen(onBack: () -> Unit) {
                 }
                 Spacer(Modifier.height(8.dp))
                 LazyColumn(Modifier.weight(1f)) {
-                    items(shifts) { (dk, sh) ->
+                    items(shifts) { (_, sh) ->
                         Card(colors = CardDefaults.cardColors(containerColor = R.S2), shape = RoundedCornerShape(8.dp), modifier = Modifier.fillMaxWidth().padding(vertical = 3.dp)) {
                             Row(Modifier.padding(10.dp), verticalAlignment = Alignment.CenterVertically) {
                                 Column(Modifier.weight(1f)) {
-                                    Text(df(dk), fontWeight = FontWeight.Bold, fontSize = 15.sp, color = R.T1)
+                                    Text(df(sh.dateKey), fontWeight = FontWeight.Bold, fontSize = 15.sp, color = R.T1)
                                     if (sh.cashierName.isNotEmpty()) Text("\uD83D\uDC64 ${sh.cashierName}", fontSize = 13.sp, color = R.PR2)
                                     Text("${tf(sh.openTime)} — ${tf(sh.closeTime)}", fontSize = 12.sp, color = R.T2)
                                     if (sh.closeTime > 0 && sh.openTime > 0) Text("%.1f ч".format((sh.closeTime - sh.openTime) / 3_600_000.0), fontSize = 11.sp, color = R.T3)
