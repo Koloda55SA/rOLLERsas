@@ -73,9 +73,9 @@ class MainViewModel(
     val error: StateFlow<String?> = _error.asStateFlow()
     fun clearError() { _error.value = null }
 
-    fun startSession(rollerId: Int, badgeId: Int, durationMins: Int, rollerSize: String = "") = viewModelScope.launch {
+    fun startSession(rollerId: Int, badgeId: Int, durationMins: Int, rollerSize: String = "", durationSeconds: Int = durationMins * 60) = viewModelScope.launch {
         try {
-            repo.startSession(rollerId, badgeId, durationMins, rollerSize)
+            repo.startSession(rollerId, badgeId, durationMins, rollerSize, durationSeconds)
         } catch (e: Exception) {
             _error.value = "Не удалось выдать ролик: ${e.message}"
         }
@@ -138,8 +138,8 @@ class MainViewModel(
         repo.shiftFlow(dateKey).collect { _shift.value = it }
     }
 
-    fun openShift(dateKey: String, cashierName: String) = viewModelScope.launch {
-        try { repo.openShift(dateKey, cashierName) } catch (e: Exception) { _error.value = e.message }
+    fun openShift(dateKey: String, cashierName: String, staffCount: Int = 1) = viewModelScope.launch {
+        try { repo.openShift(dateKey, cashierName, staffCount) } catch (e: Exception) { _error.value = e.message }
     }
     fun closeShift(shiftId: String) = viewModelScope.launch {
         try { repo.closeShift(shiftId) } catch (e: Exception) { _error.value = e.message }

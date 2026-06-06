@@ -46,10 +46,11 @@ class RollerRepository(
         awaitClose { reg.remove() }
     }
 
-    suspend fun startSession(rollerId: Int, badgeId: Int, durationMins: Int, rollerSize: String = "") {
+    suspend fun startSession(rollerId: Int, badgeId: Int, durationMins: Int, rollerSize: String = "", durationSeconds: Int = durationMins * 60) {
         val now = System.currentTimeMillis()
         val base = PricingLogic.baseAmount(durationMins)
         // Пишем через Map: поле id помечено @DocumentId и его нельзя сериализовать.
+        // endTime считаем по точным секундам — это поддерживает «своё время» (например 10 сек).
         val data = mapOf(
             "dateKey" to dateKey(),
             "rollerId" to rollerId,
@@ -57,7 +58,7 @@ class RollerRepository(
             "badgeId" to badgeId,
             "durationMins" to durationMins,
             "startTime" to now,
-            "endTime" to now + durationMins * 60_000L,
+            "endTime" to now + durationSeconds * 1000L,
             "baseAmount" to base,
             "extraAmount" to 0,
             "totalAmount" to base,
@@ -133,7 +134,7 @@ class RollerRepository(
         awaitClose { reg.remove() }
     }
 
-    suspend fun openShift(dateKey: String, cashierName: String) {
+    suspend fun openShift(dateKey: String, cashierName: String, staffCount: Int = 1) {
         val now = System.currentTimeMillis()
         val openShifts = db.collection(SHIFTS)
             .whereEqualTo("dateKey", dateKey)
@@ -145,6 +146,7 @@ class RollerRepository(
         db.collection(SHIFTS).add(mapOf(
             "dateKey" to dateKey,
             "cashierName" to cashierName,
+            "staffCount" to staffCount,
             "openTime" to now,
             "closeTime" to 0L,
             "comment" to ""

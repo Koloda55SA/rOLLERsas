@@ -20,13 +20,13 @@ enum class Screen { KANBAN, SETTINGS, VOICE_SETUP, ADMIN, SHIFT_HISTORY }
 
 class MainActivity : ComponentActivity() {
 
-    private val notifPermission = registerForActivityResult(
-        ActivityResultContracts.RequestPermission()
+    private val permissions = registerForActivityResult(
+        ActivityResultContracts.RequestMultiplePermissions()
     ) { }
 
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
-        requestNotifPermissionIfNeeded()
+        requestPermissionsIfNeeded()
         TimerService.start(this)
 
         setContent {
@@ -83,12 +83,17 @@ class MainActivity : ComponentActivity() {
         }
     }
 
-    private fun requestNotifPermissionIfNeeded() {
-        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU) {
-            val granted = ContextCompat.checkSelfPermission(
-                this, Manifest.permission.POST_NOTIFICATIONS
-            ) == PackageManager.PERMISSION_GRANTED
-            if (!granted) notifPermission.launch(Manifest.permission.POST_NOTIFICATIONS)
+    private fun requestPermissionsIfNeeded() {
+        val needed = mutableListOf<String>()
+        // Микрофон — для записи озвучки. Без явного запроса запись не работает.
+        if (ContextCompat.checkSelfPermission(this, Manifest.permission.RECORD_AUDIO) != PackageManager.PERMISSION_GRANTED) {
+            needed.add(Manifest.permission.RECORD_AUDIO)
         }
+        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU) {
+            if (ContextCompat.checkSelfPermission(this, Manifest.permission.POST_NOTIFICATIONS) != PackageManager.PERMISSION_GRANTED) {
+                needed.add(Manifest.permission.POST_NOTIFICATIONS)
+            }
+        }
+        if (needed.isNotEmpty()) permissions.launch(needed.toTypedArray())
     }
 }

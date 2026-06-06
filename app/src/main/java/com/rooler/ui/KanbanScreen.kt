@@ -171,8 +171,8 @@ fun KanbanScreen(vm: MainViewModel, totalRollers: Int, groups: List<RollerGroup>
     }
 
     giveOutRoller?.let { r ->
-        GiveOutDialog(r, sizeOf(r), { giveOutRoller = null }, { b, m ->
-            vm.startSession(r, b, m, sizeOf(r)); giveOutRoller = null; toast = "Ролик #$r выдан"
+        GiveOutDialog(r, sizeOf(r), { giveOutRoller = null }, { b, m, sec ->
+            vm.startSession(r, b, m, sizeOf(r), sec); giveOutRoller = null; toast = "Ролик #$r выдан"
         })
     }
     returnSession?.let { sv ->
@@ -195,7 +195,7 @@ fun KanbanScreen(vm: MainViewModel, totalRollers: Int, groups: List<RollerGroup>
         })
     }
     if (showForceClose) ForceCloseDialog(allActive.size, { vm.forceCloseAll(); showForceClose = false; toast = "Все закрыты" }, { showForceClose = false })
-    if (showShiftDialog && !shiftOn) ShiftDialog(admin.lastCashier, { n -> admin.lastCashier = n; vm.openShift(RollerRepository.dateKey(), n); showShiftDialog = false; toast = "Смена открыта: $n" }, { showShiftDialog = false })
+    if (showShiftDialog && !shiftOn) ShiftDialog(admin.lastCashier, { n, staff -> admin.lastCashier = n; vm.openShift(RollerRepository.dateKey(), n, staff); showShiftDialog = false; toast = "Смена открыта: $n" }, { showShiftDialog = false })
 
     toast?.let { t ->
         Snackbar(Modifier.padding(10.dp), containerColor = R.GR, contentColor = Color.White, shape = RoundedCornerShape(12.dp)) { Text("✅ $t", fontWeight = FontWeight.Medium) }
@@ -214,25 +214,43 @@ fun KanbanScreen(vm: MainViewModel, totalRollers: Int, groups: List<RollerGroup>
     }
 }
 
-@Composable fun ShiftDialog(initialName: String = "", onOpen: (String) -> Unit, onDismiss: () -> Unit) {
+@Composable fun ShiftDialog(initialName: String = "", onOpen: (String, Int) -> Unit, onDismiss: () -> Unit) {
     var name by remember { mutableStateOf(initialName) }
+    var staff by remember { mutableStateOf(1) }
     AlertDialog(
         onDismissRequest = onDismiss, containerColor = R.S1, shape = RoundedCornerShape(20.dp),
         title = { Text("🔓 Открытие смены", fontWeight = FontWeight.Bold, color = R.T1) },
         text = {
             Column {
-                Text("Введите имя — оно попадёт в отчёт.", color = R.T2, fontSize = 14.sp)
+                Text("Имя кассира попадёт в отчёт.", color = R.T2, fontSize = 14.sp)
                 Spacer(Modifier.height(10.dp))
                 OutlinedTextField(
                     name, { name = it }, label = { Text("Имя кассира") }, singleLine = true, modifier = Modifier.fillMaxWidth(),
                     shape = RoundedCornerShape(12.dp),
-                    colors = OutlinedTextFieldDefaults.colors(focusedBorderColor = R.PR, unfocusedBorderColor = R.S3, cursorColor = R.PR, focusedLabelColor = R.PR2)
+                    colors = OutlinedTextFieldDefaults.colors(focusedBorderColor = R.PR, unfocusedBorderColor = R.S3, cursorColor = R.PR, focusedLabelColor = R.PR2, focusedTextColor = R.T1, unfocusedTextColor = R.T1)
                 )
+                Spacer(Modifier.height(12.dp))
+                Text("Сколько сотрудниц на смене? (для расчёта ЗП)", color = R.T2, fontSize = 13.sp)
+                Spacer(Modifier.height(6.dp))
+                Row(Modifier.fillMaxWidth()) {
+                    StaffBtn("1 чел.", staff == 1, Modifier.weight(1f)) { staff = 1 }
+                    Spacer(Modifier.width(8.dp))
+                    StaffBtn("2 чел.", staff == 2, Modifier.weight(1f)) { staff = 2 }
+                }
             }
         },
-        confirmButton = { GradientButton("Открыть", brush = R.GradGreen, enabled = name.isNotBlank()) { if (name.isNotBlank()) onOpen(name.trim()) } },
+        confirmButton = { GradientButton("Открыть", brush = R.GradGreen, enabled = name.isNotBlank()) { if (name.isNotBlank()) onOpen(name.trim(), staff) } },
         dismissButton = { TextButton(onClick = onDismiss) { Text("Отмена", color = R.T2) } }
     )
+}
+
+@Composable private fun StaffBtn(label: String, sel: Boolean, m: Modifier, onClick: () -> Unit) {
+    Box(
+        m.height(46.dp).clip(RoundedCornerShape(12.dp))
+            .background(if (sel) R.GradGreen else Brush.linearGradient(listOf(R.S2, R.S2)))
+            .clickable { onClick() },
+        contentAlignment = Alignment.Center
+    ) { Text(label, color = if (sel) Color.White else R.T2, fontWeight = FontWeight.Bold, fontSize = 14.sp) }
 }
 
 @Composable private fun ForceCloseDialog(cnt: Int, onOk: () -> Unit, onNo: () -> Unit) {

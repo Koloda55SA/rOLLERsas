@@ -13,7 +13,7 @@ import android.media.MediaPlayer
 class BackgroundMusic(private val context: Context) {
     private var player: MediaPlayer? = null
     private val full = 1.0f
-    private val ducked = 0.2f
+    private val ducked = 0.1f
 
     fun start() {
         if (player != null) return

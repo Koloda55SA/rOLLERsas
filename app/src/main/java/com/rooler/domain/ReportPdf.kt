@@ -67,6 +67,15 @@ object ReportPdf {
             line("Ролик #$rollerId  —  $count выдач", p, 16f)
         }
 
+        if (analytics.sizeUsage.isNotEmpty() && y < 760f) {
+            y += 8f
+            line("Размеры роликов", h)
+            analytics.sizeUsage.forEach { (size, count) ->
+                if (y > 800f) return@forEach
+                line("Размер $size  —  $count выдач", p, 16f)
+            }
+        }
+
         y = 820f
         line("Разраб: Рахманов Сыймыкбек | __rahmanov___", small)
 

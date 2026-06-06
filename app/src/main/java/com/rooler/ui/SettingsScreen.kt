@@ -68,7 +68,9 @@ fun SettingsScreen(vm: MainViewModel, onOpenVoiceSetup: () -> Unit, onOpenAdmin:
     var toast by remember { mutableStateOf<String?>(null) }
 
     LaunchedEffect(dk) { vm.loadAccounting(dk); vm.loadShift(dk) }
-    var salary by remember(exp) { mutableStateOf((if (exp.salary > 0) exp.salary else admin.defaultDailySalary()).toString()) }
+    // ЗП по умолчанию: число сотрудниц со смены × ставка. Если расход уже сохранён — берём сохранённое.
+    val autoSalary = (if (sh.staffCount > 0) sh.staffCount else 1) * admin.salaryPerStaff
+    var salary by remember(exp, sh) { mutableStateOf((if (exp.salary > 0) exp.salary else autoSalary).toString()) }
     var other by remember(exp) { mutableStateOf(exp.otherExpenses.toString()) }
     var comment by remember(exp) { mutableStateOf(exp.comment) }
     var showDP by remember { mutableStateOf(false) }
@@ -99,7 +101,7 @@ fun SettingsScreen(vm: MainViewModel, onOpenVoiceSetup: () -> Unit, onOpenAdmin:
                 // Смена
                 item {
                     SectionCard("🕐 Смена") {
-                        if (sh.cashierName.isNotEmpty()) Text("👤 ${sh.cashierName}", fontSize = 14.sp, color = R.PR2, fontWeight = FontWeight.Medium)
+                        if (sh.cashierName.isNotEmpty()) Text("👤 ${sh.cashierName} · ${sh.staffCount} чел.", fontSize = 14.sp, color = R.PR2, fontWeight = FontWeight.Medium)
                         Text("${tf(sh.openTime)} — ${tf(sh.closeTime)}", fontSize = 13.sp, color = R.T2)
                         Spacer(Modifier.height(8.dp))
                         Row(Modifier.fillMaxWidth()) {
@@ -145,12 +147,16 @@ fun SettingsScreen(vm: MainViewModel, onOpenVoiceSetup: () -> Unit, onOpenAdmin:
                             SR("Чистая прибыль", "${a.netProfit} с", true)
                             Spacer(Modifier.height(10.dp))
                             GradientButton("📄 PDF-отчёт", brush = androidx.compose.ui.graphics.Brush.linearGradient(listOf(R.SC, Color(0xFF18B7A3))), modifier = Modifier.fillMaxWidth()) {
-                                ReportPdf.share(ctx, ReportPdf.generate(ctx, dk, sh, a, exp.salary, admin.staffCount, exp.otherExpenses)); toast = "PDF создан"
+                                ReportPdf.share(ctx, ReportPdf.generate(ctx, dk, sh, a, exp.salary, if (sh.staffCount > 0) sh.staffCount else admin.staffCount, exp.otherExpenses)); toast = "PDF создан"
                             }
                         }
                     }
                     item { Text("Износ роликов", fontWeight = FontWeight.Bold, fontSize = 15.sp, color = R.T1) }
                     items(a.rollerUsage) { (r, c) -> SR("#$r", "$c выдач") }
+                    if (a.sizeUsage.isNotEmpty()) {
+                        item { Spacer(Modifier.height(6.dp)); Text("По размерам", fontWeight = FontWeight.Bold, fontSize = 15.sp, color = R.T1) }
+                        items(a.sizeUsage) { (s, c) -> SR("Размер $s", "$c выдач") }
+                    }
                 } ?: item { Text("Нет данных", color = R.T3) }
             }
             Watermark()
@@ -160,7 +166,7 @@ fun SettingsScreen(vm: MainViewModel, onOpenVoiceSetup: () -> Unit, onOpenAdmin:
         val dp = rememberDatePickerState()
         DatePickerDialog(onDismissRequest = { showDP = false }, confirmButton = { TextButton(onClick = { dp.selectedDateMillis?.let { vm.selectDate(mdk(it)) }; showDP = false }) { Text("OK") } }, dismissButton = { TextButton(onClick = { showDP = false }) { Text("Отмена") } }) { DatePicker(dp) }
     }
-    if (showOpenShiftDialog) ShiftDialog(admin.lastCashier, { n -> admin.lastCashier = n; vm.openShift(dk, n); showOpenShiftDialog = false; toast = "Смена открыта: $n" }, { showOpenShiftDialog = false })
+    if (showOpenShiftDialog) ShiftDialog(admin.lastCashier, { n, staff -> admin.lastCashier = n; vm.openShift(dk, n, staff); showOpenShiftDialog = false; toast = "Смена открыта: $n" }, { showOpenShiftDialog = false })
     toast?.let { t -> Snackbar(Modifier.padding(10.dp), containerColor = R.GR, contentColor = Color.White, shape = androidx.compose.foundation.shape.RoundedCornerShape(12.dp)) { Text("✅ $t", fontWeight = FontWeight.Medium) }; LaunchedEffect(t) { kotlinx.coroutines.delay(2500); toast = null } }
 }
 

@@ -28,6 +28,7 @@ data class Shift(
     @DocumentId val id: String = "",
     val dateKey: String = "",
     val cashierName: String = "",
+    val staffCount: Int = 1,
     val openTime: Long = 0L,
     val closeTime: Long = 0L,
     val comment: String = ""
