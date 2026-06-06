@@ -122,16 +122,20 @@ class VoicePlayer(
             }
         }.getOrNull()
         if (player == null) { cont.resume(Unit); return@suspendCancellableCoroutine }
+        // Сообщаем UI, что идёт озвучка — для «волны» снизу экрана.
+        VoiceBus.startSpeaking(name)
         player.setOnCompletionListener {
             it.release()
+            VoiceBus.stopSpeaking()
             if (cont.isActive) cont.resume(Unit)
         }
         player.setOnErrorListener { mp, _, _ ->
             mp.release()
+            VoiceBus.stopSpeaking()
             if (cont.isActive) cont.resume(Unit)
             true
         }
-        cont.invokeOnCancellation { runCatching { player.release() } }
+        cont.invokeOnCancellation { runCatching { player.release() }; VoiceBus.stopSpeaking() }
         player.start()
     }
 

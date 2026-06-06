@@ -31,6 +31,11 @@ class MainActivity : ComponentActivity() {
 
         setContent {
             RollerTheme {
+                var showSplash by remember { mutableStateOf(true) }
+                if (showSplash) {
+                    SplashScreen(onDone = { showSplash = false })
+                    return@RollerTheme
+                }
                 val vm: MainViewModel = viewModel()
                 val admin = remember { AdminSettings(this) }
                 val rollerGroups = remember { RollerGroups(this) }

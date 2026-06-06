@@ -84,16 +84,14 @@ fun KanbanScreen(vm: MainViewModel, totalRollers: Int, groups: List<RollerGroup>
     val freeCount = state.freeRollers.size
 
     fun onSessionClick(sv: SessionView) {
-        if (sv.tx.isActive) {
-            if (sv.remainingMs <= 0) returnSession = sv
-            else earlyReturn = sv
-        }
+        // Карточка существует только для активной сессии, поэтому на isActive не завязываемся.
+        if (sv.remainingMs <= 0) returnSession = sv
+        else earlyReturn = sv
     }
 
     Box(Modifier.fillMaxSize().background(R.BG)) {
         GhostWatermark()
         Column(Modifier.fillMaxSize()) {
-        // ── Хедер ──
         Row(
             Modifier.fillMaxWidth().background(R.GradHeader).padding(horizontal = 16.dp, vertical = 10.dp),
             verticalAlignment = Alignment.CenterVertically
@@ -168,6 +166,8 @@ fun KanbanScreen(vm: MainViewModel, totalRollers: Int, groups: List<RollerGroup>
             }
         }
         }
+        // Волна озвучки снизу
+        VoiceWaveOverlay(Modifier.align(Alignment.BottomCenter))
     }
 
     giveOutRoller?.let { r ->
@@ -251,6 +251,40 @@ fun KanbanScreen(vm: MainViewModel, totalRollers: Int, groups: List<RollerGroup>
             .clickable { onClick() },
         contentAlignment = Alignment.Center
     ) { Text(label, color = if (sel) Color.White else R.T2, fontWeight = FontWeight.Bold, fontSize = 14.sp) }
+}
+
+/** Полоса «волны» снизу: появляется во время озвучки, столбики поднимаются. */
+@Composable
+private fun VoiceWaveOverlay(modifier: Modifier = Modifier) {
+    val speaking by com.rooler.service.VoiceBus.speaking.collectAsState()
+    val label by com.rooler.service.VoiceBus.label.collectAsState()
+    if (!speaking) return
+    val t = rememberInfiniteTransition(label = "wave")
+    val bars = 7
+    Row(
+        modifier.fillMaxWidth().background(Brush.verticalGradient(listOf(Color.Transparent, R.PR.copy(alpha = 0.35f))))
+            .padding(vertical = 10.dp),
+        horizontalArrangement = Arrangement.Center,
+        verticalAlignment = Alignment.CenterVertically
+    ) {
+        Text("🔊 ${labelText(label)}", color = Color.White, fontSize = 13.sp, fontWeight = FontWeight.Bold)
+        Spacer(Modifier.width(12.dp))
+        for (i in 0 until bars) {
+            val h = t.animateFloat(
+                initialValue = 8f, targetValue = 30f,
+                animationSpec = infiniteRepeatable(tween(300 + i * 60), RepeatMode.Reverse), label = "bar$i"
+            ).value
+            Box(Modifier.padding(horizontal = 3.dp).width(6.dp).height(h.dp).clip(RoundedCornerShape(3.dp)).background(R.PR2))
+        }
+    }
+}
+
+private fun labelText(key: String): String = when {
+    key.startsWith("num_") -> "Бейдж ${key.removePrefix("num_")}"
+    key == "time_ended" -> "Время вышло"
+    key == "closing_reminder" -> "Закрываемся"
+    key.startsWith("announce_") -> "Закрытие через ${key.removePrefix("announce_")} мин"
+    else -> "Озвучка"
 }
 
 @Composable private fun ForceCloseDialog(cnt: Int, onOk: () -> Unit, onNo: () -> Unit) {

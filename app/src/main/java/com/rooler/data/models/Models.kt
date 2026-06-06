@@ -1,6 +1,7 @@
 package com.rooler.data.models
 
 import com.google.firebase.firestore.DocumentId
+import com.google.firebase.firestore.PropertyName
 
 data class Transaction(
     @DocumentId val id: String = "",
@@ -14,8 +15,12 @@ data class Transaction(
     val baseAmount: Int = 200,
     val extraAmount: Int = 0,
     val totalAmount: Int = 0,
-    val isActive: Boolean = false,
-    val isExtraForgiven: Boolean = false
+    // @get:PropertyName обязателен: иначе Firestore ищет поле "active"/"extraForgiven"
+    // (отбрасывает префикс is) и булево всегда читается как false — ломает клики и учёт.
+    @get:PropertyName("isActive") @set:PropertyName("isActive")
+    var isActive: Boolean = false,
+    @get:PropertyName("isExtraForgiven") @set:PropertyName("isExtraForgiven")
+    var isExtraForgiven: Boolean = false
 )
 
 data class DailyExpense(

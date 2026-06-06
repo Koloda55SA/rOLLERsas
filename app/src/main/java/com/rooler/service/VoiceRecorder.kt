@@ -25,6 +25,9 @@ class VoiceRecorder(private val context: Context) {
             rec.setAudioSource(MediaRecorder.AudioSource.MIC)
             rec.setOutputFormat(MediaRecorder.OutputFormat.MPEG_4)
             rec.setAudioEncoder(MediaRecorder.AudioEncoder.AAC)
+            // Меньше задержка старта и стабильнее качество речи.
+            rec.setAudioSamplingRate(44100)
+            rec.setAudioEncodingBitRate(96000)
             rec.setOutputFile(tmp.absolutePath)
             rec.prepare()
             rec.start()

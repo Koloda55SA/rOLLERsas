@@ -9,3 +9,4 @@ gradlew text eol=lf
 *.jpg binary
 *.m4a binary
 *.mp3 binary
+*.mp4 binary
