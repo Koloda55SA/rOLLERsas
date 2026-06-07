@@ -18,6 +18,7 @@ import androidx.compose.ui.unit.sp
 import com.rooler.data.RollerRepository
 import com.rooler.data.models.Shift
 import com.rooler.domain.ReportPdf
+import kotlinx.coroutines.launch
 import java.text.SimpleDateFormat
 import java.util.Date
 import java.util.Locale
@@ -32,6 +33,7 @@ private fun df(dk: String): String {
 @Composable
 fun ShiftHistoryScreen(onBack: () -> Unit) {
     val ctx = LocalContext.current
+    val scope = androidx.compose.runtime.rememberCoroutineScope()
     val repo = remember { RollerRepository() }
     var shifts by remember { mutableStateOf<List<Pair<String, Shift>>>(emptyList()) }
     var loading by remember { mutableStateOf(true) }
@@ -51,6 +53,15 @@ fun ShiftHistoryScreen(onBack: () -> Unit) {
             else Column(Modifier.weight(1f).padding(14.dp)) {
                 Row(Modifier.fillMaxWidth(), verticalAlignment = Alignment.CenterVertically) {
                     Text("Смен: ${shifts.size}", fontWeight = FontWeight.Bold, fontSize = 16.sp, color = R.T1, modifier = Modifier.weight(1f))
+                    Button(onClick = {
+                        scope.launch {
+                            try {
+                                val all = repo.loadAllTransactions()
+                                ReportPdf.share(ctx, ReportPdf.generateFull(ctx, shifts, all)); toast = "Полный отчёт готов"
+                            } catch (e: Exception) { toast = "Ошибка: ${e.message}" }
+                        }
+                    }, colors = ButtonDefaults.buttonColors(containerColor = R.PR)) { Text("Полный А-Я", fontWeight = FontWeight.Bold) }
+                    Spacer(Modifier.width(8.dp))
                     Button(onClick = { ReportPdf.share(ctx, ReportPdf.generateShiftHistory(ctx, shifts)); toast = "PDF создан" }, colors = ButtonDefaults.buttonColors(containerColor = R.SC)) { Text("\uD83D\uDCC4 PDF", fontWeight = FontWeight.Bold) }
                 }
                 Spacer(Modifier.height(8.dp))

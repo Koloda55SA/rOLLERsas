@@ -169,6 +169,12 @@ class RollerRepository(
         }
     }
 
+    /** Все завершённые транзакции (для полного отчёта А-Я). */
+    suspend fun loadAllTransactions(): List<Transaction> {
+        val snap = db.collection(TRANSACTIONS).get().await()
+        return snap.toObjects(Transaction::class.java)
+    }
+
     fun expenseFlow(dateKey: String): Flow<DailyExpense> = callbackFlow {
         val reg = db.collection(DAILY_EXPENSES).document(dateKey)
             .addSnapshotListener { snap, err ->

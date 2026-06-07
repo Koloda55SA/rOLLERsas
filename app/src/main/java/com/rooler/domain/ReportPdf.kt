@@ -132,6 +132,74 @@ object ReportPdf {
         return file
     }
 
+    /**
+     * Полный отчёт А-Я: каждая смена — дата, имя кассира, время, выручка за день этой смены,
+     * число клиентов и часы. Внизу — итог по всем сменам. Многостраничный.
+     */
+    fun generateFull(
+        context: Context,
+        shifts: List<Pair<String, Shift>>,
+        allTransactions: List<com.rooler.data.models.Transaction>
+    ): File {
+        val doc = PdfDocument()
+        val title = Paint().apply { textSize = 18f; isFakeBoldText = true }
+        val h = Paint().apply { textSize = 13f; isFakeBoldText = true }
+        val p = Paint().apply { textSize = 11f }
+        val bold = Paint().apply { textSize = 11f; isFakeBoldText = true }
+        val small = Paint().apply { textSize = 9f }
+
+        // Выручка по дню: сумма totalAmount завершённых транзакций за дату.
+        val revenueByDay = allTransactions.filter { !it.isActive }
+            .groupBy { it.dateKey }
+            .mapValues { (_, txs) -> txs.sumOf { it.totalAmount } }
+        val clientsByDay = allTransactions.filter { !it.isActive }
+            .groupBy { it.dateKey }
+            .mapValues { (_, txs) -> txs.size }
+
+        var pageNum = 1
+        var page = doc.startPage(PdfDocument.PageInfo.Builder(595, 842, pageNum).create())
+        var canvas = page.canvas
+        var y = 40f
+        val x = 40f
+        fun nl(text: String, paint: Paint = p, dy: Float = 18f) {
+            if (y > 800f) {
+                doc.finishPage(page)
+                pageNum++
+                page = doc.startPage(PdfDocument.PageInfo.Builder(595, 842, pageNum).create())
+                canvas = page.canvas
+                y = 40f
+            }
+            canvas.drawText(text, x, y, paint); y += dy
+        }
+
+        nl("Полный отчёт — Роллердром", title, 28f)
+        nl("Всего смен: ${shifts.size}", h, 24f)
+
+        var grandRevenue = 0
+        // Сортируем по дате (новые сверху уже из истории).
+        shifts.forEach { (_, sh) ->
+            val rev = revenueByDay[sh.dateKey] ?: 0
+            val cli = clientsByDay[sh.dateKey] ?: 0
+            val name = if (sh.cashierName.isNotEmpty()) sh.cashierName else "—"
+            val openT = timeFmt(sh.openTime)
+            val closeT = timeFmt(sh.closeTime)
+            nl("${sh.dateKey}  ·  $name  ·  $openT—$closeT", bold, 16f)
+            nl("    Сотрудниц: ${sh.staffCount}  ·  Клиентов: $cli  ·  Выручка: $rev сом", p, 20f)
+            grandRevenue += rev
+        }
+
+        y += 6f
+        nl("ИТОГО выручка по всем сменам: $grandRevenue сом", h, 24f)
+        nl("Разраб: Рахманов Сыймыкбек | __rahmanov___", small)
+
+        doc.finishPage(page)
+        val dir = File(context.getExternalFilesDir(null), "reports").apply { mkdirs() }
+        val file = File(dir, "full_report.pdf")
+        file.outputStream().use { doc.writeTo(it) }
+        doc.close()
+        return file
+    }
+
     fun share(context: Context, file: File) {
         val uri = FileProvider.getUriForFile(context, context.packageName + ".fileprovider", file)
         val intent = Intent(Intent.ACTION_SEND).apply {
