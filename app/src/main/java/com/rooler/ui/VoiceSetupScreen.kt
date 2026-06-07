@@ -55,7 +55,10 @@ fun VoiceSetupScreen(totalBadges: Int, onBack: () -> Unit) {
                     { if (recKey == item.key) {
                           rec.stop(); recKey = null; ver++
                           // После записи — выгружаем в облако, чтобы было на других устройствах.
-                          scope.launch { com.rooler.service.VoiceSync.uploadVoice(ctx, item.key) }
+                          scope.launch {
+                              val ok = com.rooler.service.VoiceSync.uploadVoice(ctx, item.key)
+                              toast = if (ok) "✅ Выгружено в облако" else "⚠ Не удалось выгрузить в облако"
+                          }
                       }
                       else { try { rec.start(item.key); recKey = item.key } catch (_: Exception) { toast = "Нет доступа к микрофону" } } },
                     { rec.playback(item.key) }) }

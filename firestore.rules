@@ -10,5 +10,8 @@ service cloud.firestore {
     match /shifts/{dateKey} {
       allow read, write: if true;
     }
+    match /voices/{name} {
+      allow read, write: if true;
+    }
   }
 }
