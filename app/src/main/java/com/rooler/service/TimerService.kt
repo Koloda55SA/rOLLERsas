@@ -45,7 +45,19 @@ class TimerService : Service() {
         startForeground(NOTIF_ID, buildOngoingNotification())
         music.start()
         observeSessions()
+        observeVoiceDucking()
         startTicker()
+    }
+
+    /**
+     * Надёжное приглушение: пока идёт ЛЮБАЯ озвучка (VoiceBus.speaking == true),
+     * фон держим на 10%. Это покрывает и бейджи, и объявления, и убирает мерцание
+     * между группами озвучки.
+     */
+    private fun observeVoiceDucking() = scope.launch {
+        com.rooler.service.VoiceBus.speaking.collect { speaking ->
+            if (speaking) music.duck() else music.unduck()
+        }
     }
 
     private fun observeSessions() = scope.launch {

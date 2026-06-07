@@ -10,6 +10,11 @@ class AdminSettings(context: Context) {
         get() = prefs.getInt(KEY_ROLLERS, 50)
         set(v) = prefs.edit().putInt(KEY_ROLLERS, v).apply()
 
+    /** Кол-во бейджей (номеров для озвучки). По умолчанию = кол-ву роликов. */
+    var badgeCount: Int
+        get() = prefs.getInt(KEY_BADGES, prefs.getInt(KEY_ROLLERS, 50))
+        set(v) = prefs.edit().putInt(KEY_BADGES, v).apply()
+
     var staffCount: Int
         get() = prefs.getInt(KEY_STAFF, 2)
         set(v) = prefs.edit().putInt(KEY_STAFF, v).apply()
@@ -76,6 +81,7 @@ class AdminSettings(context: Context) {
 
     companion object {
         private const val KEY_ROLLERS = "total_rollers"
+        private const val KEY_BADGES = "badge_count"
         private const val KEY_STAFF = "staff_count"
         private const val KEY_SALARY = "salary_per_staff"
         private const val KEY_OPEN = "open_time"

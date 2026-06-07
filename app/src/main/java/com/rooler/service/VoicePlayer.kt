@@ -41,8 +41,6 @@ class VoicePlayer(
         // Единый потребитель — озвучка бейджей и объявления не звучат одновременно.
         scope.launch {
             for (firstBadge in queue) {
-                // Собираем пачку: первый бейдж + всё, что прилетело за короткое окно.
-                // Окно маленькое (чтобы не ждать долго): добираем «почти одновременные».
                 val batch = linkedSetOf(firstBadge)
                 while (true) {
                     val next = withTimeoutOrNull(BATCH_WINDOW_MS) { queue.receive() } ?: break
@@ -50,24 +48,29 @@ class VoicePlayer(
                 }
                 acquireFocus()
                 onDuckStart()
-                // Озвучиваем группами по CHUNK: 3 бейджа + общая фраза, потом следующие 3 + фраза...
-                // Если осталось 2 — 2 + фраза, если 1 — 1 + фраза.
+                VoiceBus.startSpeaking("num_$firstBadge")  // speaking на весь батч — без мерцания
                 playBatch(batch.sorted())
-                drainAnnouncements()
+                VoiceBus.stopSpeaking()
                 if (queue.isEmpty && announcementQueue.isEmpty) {
                     onDuckEnd()
                     releaseFocus()
                 }
             }
         }
-    }
-
-    /** Проигрывает объявления, накопившиеся пока шла озвучка бейджей. */
-    private suspend fun drainAnnouncements() {
-        while (true) {
-            val minutesBefore = announcementQueue.tryReceive().getOrNull() ?: break
-            playOne("announce_$minutesBefore")
-            playOne("closing_reminder")
+        // Отдельный потребитель объявлений — играют, даже если бейджей нет.
+        scope.launch {
+            for (minutesBefore in announcementQueue) {
+                acquireFocus()
+                onDuckStart()
+                VoiceBus.startSpeaking("announce_$minutesBefore")
+                playOne("announce_$minutesBefore")
+                playOne("closing_reminder")
+                VoiceBus.stopSpeaking()
+                if (queue.isEmpty && announcementQueue.isEmpty) {
+                    onDuckEnd()
+                    releaseFocus()
+                }
+            }
         }
     }
 
@@ -126,20 +129,18 @@ class VoicePlayer(
             }
         }.getOrNull()
         if (player == null) { cont.resume(Unit); return@suspendCancellableCoroutine }
-        // Сообщаем UI, что идёт озвучка — для «волны» снизу экрана.
-        VoiceBus.startSpeaking(name)
+        // Обновляем только подпись «волны» (speaking держится на весь батч извне).
+        VoiceBus.setLabel(name)
         player.setOnCompletionListener {
             it.release()
-            VoiceBus.stopSpeaking()
             if (cont.isActive) cont.resume(Unit)
         }
         player.setOnErrorListener { mp, _, _ ->
             mp.release()
-            VoiceBus.stopSpeaking()
             if (cont.isActive) cont.resume(Unit)
             true
         }
-        cont.invokeOnCancellation { runCatching { player.release() }; VoiceBus.stopSpeaking() }
+        cont.invokeOnCancellation { runCatching { player.release() } }
         player.start()
     }
 

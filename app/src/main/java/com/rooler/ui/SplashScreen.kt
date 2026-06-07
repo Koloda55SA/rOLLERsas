@@ -19,7 +19,7 @@ import kotlinx.coroutines.delay
 @Composable
 fun SplashScreen(onDone: () -> Unit) {
     LaunchedEffect(Unit) {
-        delay(3500)
+        delay(4000)
         onDone()
     }
     Box(Modifier.fillMaxSize().background(R.BG), contentAlignment = Alignment.Center) {
@@ -39,9 +39,8 @@ fun SplashScreen(onDone: () -> Unit) {
                 val uri = android.net.Uri.parse("android.resource://${ctx.packageName}/${com.rooler.R.raw.splash}")
                 video.setVideoURI(uri)
                 video.setOnPreparedListener { mp ->
-                    mp.isLooping = false
+                    mp.isLooping = true  // зациклить, чтобы заполнить все 4 сек
                     runCatching { mp.setVolume(1f, 1f) }
-                    // Масштаб «cover»: растягиваем VideoView, чтобы видео заполнило экран без полей.
                     val vw = mp.videoWidth.toFloat()
                     val vh = mp.videoHeight.toFloat()
                     if (vw > 0 && vh > 0) {
@@ -54,7 +53,6 @@ fun SplashScreen(onDone: () -> Unit) {
                     }
                     video.start()
                 }
-                video.setOnCompletionListener { onDone() }
                 video.setOnErrorListener { _, _, _ -> onDone(); true }
                 container
             }

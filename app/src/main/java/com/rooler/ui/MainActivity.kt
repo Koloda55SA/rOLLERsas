@@ -63,7 +63,7 @@ class MainActivity : ComponentActivity() {
                         onBack = { screen = Screen.KANBAN }
                     )
                     Screen.VOICE_SETUP -> VoiceSetupScreen(
-                        totalBadges = admin.totalRollers,
+                        totalBadges = admin.badgeCount,
                         onBack = { screen = Screen.SETTINGS }
                     )
                     Screen.ADMIN -> AdminScreen(

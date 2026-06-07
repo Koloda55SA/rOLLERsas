@@ -27,6 +27,7 @@ fun AdminScreen(onBack: () -> Unit) {
     val ctx = LocalContext.current
     val s = remember { AdminSettings(ctx) }
     var rollers by remember { mutableStateOf(s.totalRollers.toString()) }
+    var badges by remember { mutableStateOf(s.badgeCount.toString()) }
     var staff by remember { mutableStateOf(s.staffCount.toString()) }
     var salary by remember { mutableStateOf(s.salaryPerStaff.toString()) }
     var openT by remember { mutableStateOf(s.openTimeStr) }
@@ -42,7 +43,7 @@ fun AdminScreen(onBack: () -> Unit) {
             Column(Modifier.weight(1f).padding(14.dp).verticalScroll(rememberScrollState())) {
                 Text("Основные", fontWeight = FontWeight.Bold, fontSize = 17.sp, color = R.T1)
                 Spacer(Modifier.height(4.dp))
-                NF("Роликов", rollers) { rollers = it }; NF("Сотрудниц", staff) { staff = it }; NF("ЗП/сотр.", salary) { salary = it }
+                NF("Роликов", rollers) { rollers = it }; NF("Бейджей (озвучка)", badges) { badges = it }; NF("Сотрудниц", staff) { staff = it }; NF("ЗП/сотр.", salary) { salary = it }
                 OutlinedTextField(openT, { openT = it }, label = { Text("Открытие ЧЧ:ММ") }, singleLine = true, modifier = Modifier.fillMaxWidth().padding(vertical = 3.dp), colors = tfc())
                 OutlinedTextField(closeT, { closeT = it }, label = { Text("Закрытие ЧЧ:ММ") }, singleLine = true, modifier = Modifier.fillMaxWidth().padding(vertical = 3.dp), colors = tfc())
                 NF("PIN", pin) { pin = it.take(4) }
@@ -78,7 +79,7 @@ fun AdminScreen(onBack: () -> Unit) {
 
                 Spacer(Modifier.height(20.dp))
                 Button(onClick = {
-                    s.totalRollers = rollers.toIntOrNull()?.coerceIn(1, 200) ?: 50; s.staffCount = staff.toIntOrNull() ?: 2; s.salaryPerStaff = salary.toIntOrNull() ?: 0
+                    s.totalRollers = rollers.toIntOrNull()?.coerceIn(1, 200) ?: 50; s.badgeCount = badges.toIntOrNull()?.coerceIn(1, 500) ?: 50; s.staffCount = staff.toIntOrNull() ?: 2; s.salaryPerStaff = salary.toIntOrNull() ?: 0
                     s.openTimeStr = openT; s.closeTimeStr = closeT; s.pin = if (pin.length == 4) pin else "7777"; s.adsEnabled = ads
                     s.saveRollerGroups(groups.filter { it.size.isNotEmpty() }); groups = s.loadRollerGroups()
                     s.saveAnnouncementMinutes(annMins.filter { it > 0 }.distinct().sortedDescending()); annMins = s.loadAnnouncementMinutes(); saved = true

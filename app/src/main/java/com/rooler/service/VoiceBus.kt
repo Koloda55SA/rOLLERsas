@@ -22,6 +22,7 @@ object VoiceBus {
     val label: StateFlow<String> = _label.asStateFlow()
 
     fun startSpeaking(label: String) { _label.value = label; _speaking.value = true }
+    fun setLabel(label: String) { _label.value = label }
     fun setLevel(v: Float) { _level.value = v.coerceIn(0f, 1f) }
     fun stopSpeaking() { _speaking.value = false; _level.value = 0f; _label.value = "" }
 }
