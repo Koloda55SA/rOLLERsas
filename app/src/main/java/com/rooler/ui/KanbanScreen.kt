@@ -147,7 +147,9 @@ fun KanbanScreen(vm: MainViewModel, totalRollers: Int, groups: List<RollerGroup>
                 if (shift.closeTime > 0 && shift.cashierName.isNotEmpty()) {
                     // Смена только что закрыта — предлагаем отправить отчёт.
                     GradientButton("📤 Отправить отчёт", brush = R.GradPrimary, height = 38.dp, fontSize = 13.sp) {
-                        val a = AnalyticsLogic.compute(reportTxs, reportSalary, 0)
+                        // Только транзакции этой смены (по окну открытия–закрытия), не всего дня.
+                        val shiftTxs = AnalyticsLogic.transactionsForShift(reportTxs, shift)
+                        val a = AnalyticsLogic.compute(shiftTxs, reportSalary, 0)
                         ReportPdf.share(ctx, ReportPdf.generate(ctx, shift.dateKey, shift, a, reportSalary, if (shift.staffCount > 0) shift.staffCount else 1, 0)); toast = "Отчёт сформирован"
                     }
                     Spacer(Modifier.width(6.dp))

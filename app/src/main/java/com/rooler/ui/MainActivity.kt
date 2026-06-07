@@ -46,6 +46,8 @@ class MainActivity : ComponentActivity() {
                 LaunchedEffect(Unit) {
                     vm.setTotalRollers(admin.totalRollers)
                     vm.loadShift(RollerRepository.dateKey())
+                    // Подтягиваем записи озвучки из облака (нужно при переносе на новое устройство).
+                    runCatching { com.rooler.service.VoiceSync.syncDown(this@MainActivity) }
                 }
 
                 when (screen) {

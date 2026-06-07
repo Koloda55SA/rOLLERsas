@@ -6,6 +6,7 @@ import android.graphics.Paint
 import android.graphics.pdf.PdfDocument
 import androidx.core.content.FileProvider
 import com.rooler.data.models.Shift
+import com.rooler.domain.AnalyticsLogic
 import com.rooler.domain.DayAnalytics
 import java.io.File
 import java.text.SimpleDateFormat
@@ -148,14 +149,8 @@ object ReportPdf {
         val bold = Paint().apply { textSize = 11f; isFakeBoldText = true }
         val small = Paint().apply { textSize = 9f }
 
-        // Выручка по дню: сумма totalAmount завершённых транзакций за дату.
-        val revenueByDay = allTransactions.filter { !it.isActive }
-            .groupBy { it.dateKey }
-            .mapValues { (_, txs) -> txs.sumOf { it.totalAmount } }
-        val clientsByDay = allTransactions.filter { !it.isActive }
-            .groupBy { it.dateKey }
-            .mapValues { (_, txs) -> txs.size }
-
+        // Выручка считается ПО СМЕНЕ (окно открытия–закрытия), а не по дню —
+        // иначе две смены одного дня делят одну выручку.
         var pageNum = 1
         var page = doc.startPage(PdfDocument.PageInfo.Builder(595, 842, pageNum).create())
         var canvas = page.canvas
@@ -176,10 +171,10 @@ object ReportPdf {
         nl("Всего смен: ${shifts.size}", h, 24f)
 
         var grandRevenue = 0
-        // Сортируем по дате (новые сверху уже из истории).
         shifts.forEach { (_, sh) ->
-            val rev = revenueByDay[sh.dateKey] ?: 0
-            val cli = clientsByDay[sh.dateKey] ?: 0
+            val shiftTxs = AnalyticsLogic.transactionsForShift(allTransactions, sh).filter { !it.isActive }
+            val rev = shiftTxs.sumOf { it.totalAmount }
+            val cli = shiftTxs.size
             val name = if (sh.cashierName.isNotEmpty()) sh.cashierName else "—"
             val openT = timeFmt(sh.openTime)
             val closeT = timeFmt(sh.closeTime)

@@ -1,5 +1,6 @@
 package com.rooler.domain
 
+import com.rooler.data.models.Shift
 import com.rooler.data.models.Transaction
 
 data class DayAnalytics(
@@ -13,6 +14,18 @@ data class DayAnalytics(
 )
 
 object AnalyticsLogic {
+    /**
+     * Транзакции, относящиеся к конкретной смене: по дате И по временно́му окну смены
+     * (старт сессии между открытием и закрытием смены). Если смена ещё открыта
+     * (closeTime<=0) — берём всё с момента открытия. Это разделяет выручку между
+     * сменами одного дня (например, смена Айжан и затем смена Сыймыка).
+     */
+    fun transactionsForShift(all: List<Transaction>, shift: Shift): List<Transaction> {
+        if (shift.openTime <= 0) return emptyList()
+        val end = if (shift.closeTime > 0) shift.closeTime else Long.MAX_VALUE
+        return all.filter { it.dateKey == shift.dateKey && it.startTime in shift.openTime..end }
+    }
+
     fun compute(
         transactions: List<Transaction>,
         salary: Int,

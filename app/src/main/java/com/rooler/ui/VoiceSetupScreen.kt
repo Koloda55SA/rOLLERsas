@@ -20,6 +20,7 @@ import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import com.rooler.data.AdminSettings
 import com.rooler.service.VoiceRecorder
+import kotlinx.coroutines.launch
 
 private data class VI(val key: String, val title: String)
 
@@ -41,18 +42,27 @@ fun VoiceSetupScreen(totalBadges: Int, onBack: () -> Unit) {
     }}
 
     var toast by remember { mutableStateOf<String?>(null) }
+    val scope = androidx.compose.runtime.rememberCoroutineScope()
 
-    Scaffold(containerColor = R.BG, topBar = { TopAppBar(title = { Text("Озвучка", color = R.T1) }, navigationIcon = { IconButton(onClick = onBack) { Icon(Icons.Default.ArrowBack, null, tint = R.T2) } }, colors = TopAppBarDefaults.topAppBarColors(containerColor = R.S1)) }) { pad ->
+    Scaffold(containerColor = R.BG, topBar = { TopAppBar(title = { Text("Озвучка", color = R.T1) }, navigationIcon = { IconButton(onClick = onBack) { Icon(Icons.Default.ArrowBack, null, tint = R.T2) } }, actions = {
+        TextButton(onClick = {
+            scope.launch { val n = com.rooler.service.VoiceSync.syncDown(ctx, force = true); ver++; toast = "Скачано записей: $n" }
+        }) { Text("⬇ Загрузить", color = R.SC, fontSize = 13.sp) }
+    }, colors = TopAppBarDefaults.topAppBarColors(containerColor = R.S1)) }) { pad ->
         LazyColumn(Modifier.padding(pad).padding(horizontal = 10.dp)) {
             items(items, key = { it.key }) { item ->
                 key(ver) { VRow(item.title, rec.exists(item.key), recKey == item.key,
-                    { if (recKey == item.key) { rec.stop(); recKey = null; ver++ }
+                    { if (recKey == item.key) {
+                          rec.stop(); recKey = null; ver++
+                          // После записи — выгружаем в облако, чтобы было на других устройствах.
+                          scope.launch { com.rooler.service.VoiceSync.uploadVoice(ctx, item.key) }
+                      }
                       else { try { rec.start(item.key); recKey = item.key } catch (_: Exception) { toast = "Нет доступа к микрофону" } } },
                     { rec.playback(item.key) }) }
             }
         }
     }
-    toast?.let { t -> Snackbar(Modifier.padding(10.dp), containerColor = R.RD.copy(alpha = 0.9f), contentColor = Color.White) { Text(t, fontWeight = FontWeight.Medium) }; LaunchedEffect(t) { kotlinx.coroutines.delay(2500); toast = null } }
+    toast?.let { t -> Snackbar(Modifier.padding(10.dp), containerColor = R.GR.copy(alpha = 0.9f), contentColor = Color.White) { Text(t, fontWeight = FontWeight.Medium) }; LaunchedEffect(t) { kotlinx.coroutines.delay(2500); toast = null } }
 }
 
 @Composable private fun VRow(title: String, done: Boolean, rec: Boolean, onRec: () -> Unit, onPlay: () -> Unit) {
